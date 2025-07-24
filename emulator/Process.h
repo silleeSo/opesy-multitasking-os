@@ -1,9 +1,15 @@
-#pragma once
+﻿#pragma once
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <memory>
 #include <cstdint>
+
+//NEWLY ADDED: Chrysille
+#include <unordered_map>
+#include <string>
+#include <memory>
+//
 
 class Process {
 public:
@@ -47,6 +53,24 @@ public:
         sleepTargetTick_ = targetTick;
     }
 
+    //NEWLY ADDED: Chrysille
+    std::unordered_map<std::string, std::string>& getSymbolTable() {
+        return symbolTable_;
+    }
+
+    std::unordered_map<int, int>& getPageTable() {
+        return pageTable_;
+    }
+
+    std::unordered_map<int, bool>& getValidBits() {
+        return validBits_;
+    }
+
+    void setMemoryManager(MemoryManager* mm) {
+        memoryManager = mm;
+    }
+    //
+
 private:
     int pid_;
     std::string name_;
@@ -60,5 +84,12 @@ private:
     std::unordered_map<std::string, uint16_t> vars;
     std::vector<LoopState> loopStack;
     std::vector<std::pair<time_t, std::string>> logs_;
+
+    //NEWLY ADDED: Chrysille
+    std::unordered_map<std::string, std::string> symbolTable_;  // var name → logical addr
+    std::unordered_map<int, int> pageTable_;                    // logical page → physical frame
+    std::unordered_map<int, bool> validBits_;                   // page validity
+    class MemoryManager* memoryManager = nullptr;
+
 
 };
