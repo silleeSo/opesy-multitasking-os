@@ -1,4 +1,3 @@
-
 #pragma once
 #include <vector>
 #include <string>
@@ -7,40 +6,41 @@
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
-#include <unordered_set> 
+#include <unordered_set>
+#include <queue>  
 
 #include "Core.h"
 #include "Process.h"
 #include "ThreadedQueue.h"
 #include "GlobalState.h"
+#include "MemoryManager.h" 
 
 class Scheduler {
 public:
     Scheduler(int num_cpu, const std::string& scheduler_type, uint64_t quantum_cycles,
         uint64_t batch_process_freq, uint64_t min_ins, uint64_t max_ins,
-        uint64_t delay_per_exec);
+        uint64_t delay_per_exec, MemoryManager& memoryManager);
+
     ~Scheduler();
 
     void start();
     void stop();
     void submit(std::shared_ptr<Process> p);
-    void notifyProcessFinished();
     void requeueProcess(std::shared_ptr<Process> p);
     void startProcessGeneration();
     void stopProcessGeneration();
     void waitUntilAllDone();
 
     void addFinishedProcess(std::shared_ptr<Process> p);
-
-    int getNextProcessId();
+    uint64_t getNextProcessId();
 
     std::vector<std::shared_ptr<Process>> getRunningProcesses() const;
     std::vector<std::shared_ptr<Process>> getFinishedProcesses() const;
     std::vector<std::shared_ptr<Process>> getSleepingProcesses() const;
 
     double getCpuUtilization() const;
-    int getCoresUsed() const;
-    int getCoresAvailable() const;
+    size_t getCoresUsed() const;
+    size_t getCoresAvailable() const;
 
 
     void updateCoreUtilization(int coreId, uint64_t ticksUsed);
@@ -50,8 +50,9 @@ private:
     void schedulerLoop();
     void processGeneratorLoop();
 
+    // Core specs
     int numCpus_;
-    int nextCoreIndex_ = 0;
+    size_t nextCoreIndex_ = 0; 
     std::string schedulerType_;
     uint64_t quantumCycles_;
     uint64_t batchProcessFreq_;
@@ -59,19 +60,21 @@ private:
     uint64_t maxInstructions_;
     uint64_t delayPerExec_;
 
+    // Core and process queues
     std::vector<std::unique_ptr<Core>> cores_;
     TSQueue<std::shared_ptr<Process>> readyQueue_;
+    std::queue<std::shared_ptr<Process>> memoryPendingQueue; 
 
-    mutable std::mutex runningProcessesMutex_;
-    std::vector<std::shared_ptr<Process>> runningProcesses_;
-
-    mutable std::mutex finishedProcessesMutex_;
-    std::vector<std::shared_ptr<Process>> finishedProcesses_;
-    std::unordered_set<int> finishedPIDs_;
-
+    // Sleeping processes
     mutable std::mutex sleepingProcessesMutex_;
     std::vector<std::shared_ptr<Process>> sleepingProcesses_;
 
+    // Finished processes
+    mutable std::mutex finishedProcessesMutex_;
+    std::vector<std::shared_ptr<Process>> finishedProcesses_;
+    std::unordered_set<uint64_t> finishedPIDs_;
+
+    // Running control
     std::thread schedulerThread_;
     std::atomic<bool> running_ = false;
 
@@ -79,9 +82,14 @@ private:
     std::atomic<bool> processGenEnabled_ = false;
     std::atomic<uint64_t> lastProcessGenTick_ = 0;
 
-    std::atomic<int> nextPid_ = 1;
+    std::atomic<uint64_t> nextPid_ = 1;
     std::atomic<int> activeProcessesCount_ = 0;
 
     std::vector<std::unique_ptr<std::atomic<uint64_t>>> coreTicksUsed_;
     std::atomic<uint64_t> schedulerStartTime_ = 0;
+
+    // Memory Management Support
+    MemoryManager& memoryManager_;
+    uint64_t lastQuantumSnapshot_ = 0;
+    uint64_t quantumIndex_ = 0;
 };

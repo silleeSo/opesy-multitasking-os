@@ -23,9 +23,8 @@ public:
         uint16_t repeats;
     };
 
-    Process(int pid, std::string name);
-
-    int getPid() const { return pid_; }
+    Process(uint64_t pid, std::string name);
+    uint64_t getPid() const { return pid_; }
     const std::string& getName() const { return name_; }
     bool isFinished() const { return finished_; }
     bool isSleeping() const { return isSleeping_; }
@@ -66,13 +65,9 @@ public:
         return validBits_;
     }
 
-    void setMemoryManager(MemoryManager* mm) {
-        memoryManager = mm;
-    }
-    //
 
 private:
-    int pid_;
+    uint64_t pid_;
     std::string name_;
     bool finished_;
     bool isSleeping_ = false;

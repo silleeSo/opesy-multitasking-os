@@ -25,6 +25,8 @@ public:
     const std::vector<std::string>& getFrameTable() const;
     const std::vector<bool>& getValidBits() const;
 
+    void freeFramesByPagePrefix(const std::string& prefix);
+
 private:
     int totalMemoryBytes;
     int frameSize;

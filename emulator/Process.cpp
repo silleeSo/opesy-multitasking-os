@@ -20,7 +20,7 @@
 static std::random_device rd;
 static std::mt19937 gen(rd());
 
-Process::Process(int pid, std::string name)
+Process::Process(uint64_t pid, std::string name)
     : pid_(pid), name_(std::move(name)), finished_(false), isSleeping_(false), sleepTargetTick_(0) {}
 
 void Process::execute(const Instruction& ins, int coreId) {
@@ -139,8 +139,11 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
     while (instructionsGenerated < totalInstructions) {
         int opcode;
         bool allowFor = (currentDepth < 3);
-        if (allowFor && distProbability(gen) < 0.15) {
-            opcode = 6;  // FOR
+
+        // Allow FOR only if there's room for FOR + END + at least 1 body instruction
+        if (allowFor && distProbability(gen) < 0.15 &&
+            instructionsGenerated + 3 <= totalInstructions) {
+            opcode = 6;
         }
         else {
             opcode = opcode_pool[distGeneralOp(gen)];
@@ -172,30 +175,31 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
             break;
 
         case 6: {
-            if (currentDepth >= 3) continue;
-
+            // FOR loop
             std::uniform_int_distribution<int> distRepeats(1, 5);
             ins.args.push_back(std::to_string(distRepeats(gen)));
-            insList.push_back(ins);
+            insList.push_back(ins); // FOR
+            instructionsGenerated++;
             currentDepth++;
 
-            std::uniform_int_distribution<int> distInnerBlockSize(1, 5);
-            int blockSize = distInnerBlockSize(gen);
+            // Determine max allowed block size to stay within totalInstructions
+            int maxBlock = static_cast<int>(totalInstructions - instructionsGenerated - 1); // 1 for END
+            std::uniform_int_distribution<int> distBlock(1, std::min(5, maxBlock));
+            int blockSize = distBlock(gen);
 
-            for (int i = 0; i < blockSize && instructionsGenerated < totalInstructions; ++i) {
+            for (int i = 0; i < blockSize; ++i) {
                 Instruction body;
                 int innerOpcode;
 
-                if (currentDepth < 3 && distProbability(gen) < 0.15) {
+                if (currentDepth < 3 && distProbability(gen) < 0.15 &&
+                    instructionsGenerated + 3 <= totalInstructions) {
                     innerOpcode = 6;
                 }
                 else {
                     innerOpcode = opcode_pool[distGeneralOp(gen)];
                 }
 
-                if (innerOpcode == 6 && currentDepth >= 3) {
-                    continue;  // Prevent nesting > 3
-                }
+                if (innerOpcode == 6 && currentDepth >= 3) continue;
 
                 body.opcode = innerOpcode;
 
@@ -222,10 +226,10 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
             }
 
             Instruction endIns;
-            endIns.opcode = 7;  // END
+            endIns.opcode = 7; // END
             insList.push_back(endIns);
+            instructionsGenerated++;
             currentDepth--;
-            instructionsGenerated += 2;  // FOR + END
             continue;
         }
         }
@@ -234,14 +238,22 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
         instructionsGenerated++;
     }
 
-    // Final safety cleanup
-    while (currentDepth > 0) {
+    // Final cleanup: add END instructions if FORs were left open
+    while (currentDepth > 0 && instructionsGenerated < totalInstructions) {
         Instruction endIns;
         endIns.opcode = 7;
         insList.push_back(endIns);
+        instructionsGenerated++;
         currentDepth--;
     }
+
+    // Clamp to exact instruction count, just in case
+    if (insList.size() > totalInstructions) {
+        insList.resize(totalInstructions);
+    }
 }
+
+
 
 
 

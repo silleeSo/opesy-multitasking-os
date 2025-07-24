@@ -67,3 +67,12 @@ const std::vector<std::string>& MainMemory::getFrameTable() const {
 const std::vector<bool>& MainMemory::getValidBits() const {
     return validBits;
 }
+
+void MainMemory::freeFramesByPagePrefix(const std::string& prefix) {
+    for (int i = 0; i < frameTable.size(); ++i) {
+        if (validBits[i] && frameTable[i].find(prefix) == 0) {
+            clearFrame(i); // Also marks it invalid
+        }
+    }
+}
+

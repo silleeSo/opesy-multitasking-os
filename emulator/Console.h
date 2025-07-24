@@ -1,5 +1,4 @@
-﻿
-// Console.h
+﻿// Console.h
 #pragma once
 #include <ctime>
 #include <iomanip>
@@ -17,6 +16,8 @@
 #include "Screen.h"
 #include "Process.h"
 #include "GlobalState.h" // Include for globalCpuTicks
+#include "MainMemory.h"
+#include "MemoryManager.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -33,6 +34,10 @@ struct Config {
     uint64_t     min_ins = 1;
     uint64_t     max_ins = 1;
     uint64_t     delay_per_exec = 0;
+    int          max_overall_mem = 16384;
+    int          mem_per_frame = 16;
+    int          min_mem_per_proc = 1024; // New
+    int          max_mem_per_proc = 4096; // New
 };
 
 
@@ -65,24 +70,24 @@ private:
         cout << "Type 'help' to see available commands\n";
     }
     void clearScreen() {
-        #ifdef _WIN32
-             system("cls");
-        #else
-             system("clear");
-        #endif
-             printHeader();
+#ifdef _WIN32
+        system("cls");
+#else
+        system("clear");
+#endif
+        printHeader();
     }
     string getCurrentTimestamp() {
         time_t now = time(nullptr);
-            tm localtm{};
-        #ifdef _WIN32
-            localtime_s(&localtm, &now);
-        #else
-            localtime_r(&now, &localtm);
-        #endif
-            char buf[64];
-            strftime(buf, sizeof(buf), "%m/%d/%Y, %I:%M:%S %p", &localtm);
-            return string(buf);
+        tm localtm{};
+#ifdef _WIN32
+        localtime_s(&localtm, &now);
+#else
+        localtime_r(&now, &localtm);
+#endif
+        char buf[64];
+        strftime(buf, sizeof(buf), "%m/%d/%Y, %I:%M:%S %p", &localtm);
+        return string(buf);
     }
 
     // New: Function to start the CPU tick thread
@@ -140,15 +145,33 @@ private:
                     << "  batch_process_freq = " << cfg_.batch_process_freq << '\n'
                     << "  min_ins            = " << cfg_.min_ins << '\n'
                     << "  max_ins            = " << cfg_.max_ins << '\n'
-                    << "  delay_per_exec     = " << cfg_.delay_per_exec << '\n';
+                    << "  delay_per_exec     = " << cfg_.delay_per_exec << '\n'
+                    << "  max-overall-mem    = " << cfg_.max_overall_mem << '\n'
+                    << "  mem-per-frame      = " << cfg_.mem_per_frame << '\n'
+                    << "  min-mem-per-proc   = " << cfg_.min_mem_per_proc << '\n'
+                    << "  max-mem-per-proc   = " << cfg_.max_mem_per_proc << '\n';
+               
+                mainMemory_ = std::make_unique<MainMemory>(
+                    cfg_.max_overall_mem, cfg_.mem_per_frame);
 
-                // Initialize the scheduler after config is loaded
-                scheduler_ = make_unique<Scheduler>(cfg_.num_cpu, cfg_.scheduler, cfg_.quantum_cycles,
-                    cfg_.batch_process_freq, cfg_.min_ins, cfg_.max_ins,
-                    cfg_.delay_per_exec);
-                scheduler_->start(); // Start the scheduler's main loop
+                memoryManager_ = std::make_unique<MemoryManager>(
+                    *mainMemory_, cfg_.min_mem_per_proc, cfg_.max_mem_per_proc, cfg_.mem_per_frame);
 
-                startCpuTickThread(); // Start the global CPU tick counter
+                scheduler_ = std::make_unique<Scheduler>(
+                    cfg_.num_cpu,
+                    cfg_.scheduler,
+                    cfg_.quantum_cycles,
+                    cfg_.batch_process_freq,
+                    cfg_.min_ins,
+                    cfg_.max_ins,
+                    cfg_.delay_per_exec,
+                    *memoryManager_ 
+                );
+
+
+
+                scheduler_->start();          // Start the scheduler's main loop
+                startCpuTickThread();         // Start the global CPU tick counter
             }
             else {
                 cout << "Initialization failed – check config.txt\n";
@@ -198,7 +221,7 @@ private:
                     else {
                         // Create a new process and submit to scheduler
                         // PID will be assigned by scheduler's internal counter or a new mechanism
-                        auto newProcess = make_shared<Process>(scheduler_->getNextProcessId(), processName);
+                        auto newProcess = make_shared<Process>(static_cast<int>(scheduler_->getNextProcessId()), processName);
                         newProcess->genRandInst(cfg_.min_ins, cfg_.max_ins); // Generate instructions
                         scheduler_->submit(newProcess);
                         cout << "Process '" << processName << "' (PID: " << newProcess->getPid() << ") created and submitted." << endl;
@@ -290,11 +313,11 @@ private:
                             // Format timestamp
                             time_t now = time(nullptr);
                             tm localtm{};
-                        #ifdef _WIN32
+#ifdef _WIN32
                             localtime_s(&localtm, &now);
-                        #else
+#else
                             localtime_r(&now, &localtm);
-                        #endif
+#endif
                             char timebuf[64];
                             strftime(timebuf, sizeof(timebuf), "%m/%d/%Y %I:%M:%S%p", &localtm);
 
@@ -321,11 +344,11 @@ private:
                     for (const auto& p : finished) {
                         time_t ft = p->getFinishTime();
                         tm localtm{};
-                        #ifdef _WIN32
-                            localtime_s(&localtm, &ft);
-                        #else
-                            localtime_r(&ft, &localtm);
-                        #endif
+#ifdef _WIN32
+                        localtime_s(&localtm, &ft);
+#else
+                        localtime_r(&ft, &localtm);
+#endif
                         char timebuf[64];
                         strftime(timebuf, sizeof(timebuf), "%m/%d/%Y %I:%M:%S%p", &localtm);
 
@@ -339,11 +362,11 @@ private:
 
 
                 cout << "----------------------------\n";
-                }
+            }
 
 
 
-            
+
             else if (trimmedLine == "scheduler-start") {
                 scheduler_->startProcessGeneration();
                 cout << "Scheduler process generation started." << endl;
@@ -456,6 +479,10 @@ private:
             cfg_.min_ins = stoull(kv.at("min-ins"));
             cfg_.max_ins = stoull(kv.at("max-ins"));
             cfg_.delay_per_exec = stoull(kv.at("delay-per-exec"));
+            cfg_.max_overall_mem = stoi(kv.at("max-overall-mem"));
+            cfg_.mem_per_frame = stoi(kv.at("mem-per-frame"));
+            cfg_.min_mem_per_proc = stoi(kv.at("min-mem-per-proc"));
+            cfg_.max_mem_per_proc = stoi(kv.at("max-mem-per-proc"));
         }
         catch (const out_of_range& oor) {
             (void)oor; // Suppress unused variable warning
@@ -497,6 +524,9 @@ private:
 
     Config cfg_;
     bool   initialized_ = false;
+    std::unique_ptr<MainMemory> mainMemory_;
+    std::unique_ptr<MemoryManager> memoryManager_;
+
     std::unique_ptr<Scheduler> scheduler_;          // created after init
     std::unique_ptr<Screen> activeScreen_;          // one attached screen at a time
     std::thread cpuTickThread; // Thread for the global CPU tick counter

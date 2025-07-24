@@ -1,3 +1,4 @@
+// Scheduler.cpp — Final Full Spec-Aligned Version
 #include "Scheduler.h"
 #include "Core.h"
 #include <algorithm>
@@ -9,12 +10,14 @@ static std::random_device scheduler_rd;
 static std::mt19937 scheduler_gen(scheduler_rd());
 
 Scheduler::Scheduler(int num_cpu, const std::string& scheduler_type, uint64_t quantum_cycles,
-    uint64_t batch_process_freq, uint64_t min_ins, uint64_t max_ins, uint64_t delay_per_exec)
+    uint64_t batch_process_freq, uint64_t min_ins, uint64_t max_ins, uint64_t delay_per_exec,
+    MemoryManager& memoryManager)
     : numCpus_(num_cpu), schedulerType_(scheduler_type), quantumCycles_(quantum_cycles),
     batchProcessFreq_(batch_process_freq), minInstructions_(min_ins), maxInstructions_(max_ins),
     delayPerExec_(delay_per_exec), running_(false), processGenEnabled_(false),
     lastProcessGenTick_(0), nextPid_(1), activeProcessesCount_(0),
-    schedulerStartTime_(0) {
+    schedulerStartTime_(0), memoryManager_(memoryManager),
+    lastQuantumSnapshot_(0), quantumIndex_(0) {
 
     cores_.reserve(numCpus_);
     for (int i = 0; i < numCpus_; ++i) {
@@ -36,33 +39,22 @@ void Scheduler::start() {
 }
 
 void Scheduler::stop() {
-    // Signal all cores to stop their work immediately.
-    for (const auto& core : cores_) {
-        if (core) {
-            core->stop();
-        }
-    }
-
-    // Stop the scheduler and process generator loops
+    for (const auto& core : cores_) core->stop();
     running_ = false;
     processGenEnabled_ = false;
-
-    // Join the scheduler's own threads
-    if (schedulerThread_.joinable()) {
-        schedulerThread_.join();
-    }
-    if (processGenThread_.joinable()) {
-        processGenThread_.join();
-    }
+    if (schedulerThread_.joinable()) schedulerThread_.join();
+    if (processGenThread_.joinable()) processGenThread_.join();
 }
 
 void Scheduler::submit(std::shared_ptr<Process> p) {
-    readyQueue_.push(p);
-    activeProcessesCount_++;
-}
-
-
-void Scheduler::notifyProcessFinished() {
+    if (memoryManager_.allocateMemory(p)) {
+        readyQueue_.push(p);
+        activeProcessesCount_++;
+    }
+    else {
+        memoryPendingQueue.push(p);
+        std::cout << "[MemoryManager] Process " << p->getName() << " pending due to memory.\n";
+    }
 }
 
 void Scheduler::requeueProcess(std::shared_ptr<Process> p) {
@@ -72,6 +64,16 @@ void Scheduler::requeueProcess(std::shared_ptr<Process> p) {
     }
     else {
         readyQueue_.push(p);
+    }
+}
+
+void Scheduler::addFinishedProcess(std::shared_ptr<Process> p) {
+    std::lock_guard<std::mutex> lock(finishedProcessesMutex_);
+    if (finishedPIDs_.insert(p->getPid()).second) {
+        p->setFinishTime(time(nullptr));
+        memoryManager_.deallocate(p->getPid());
+        finishedProcesses_.push_back(p);
+        activeProcessesCount_--;
     }
 }
 
@@ -94,19 +96,14 @@ void Scheduler::waitUntilAllDone() {
     }
 }
 
-int Scheduler::getNextProcessId() {
+uint64_t Scheduler::getNextProcessId() {
     return nextPid_++;
 }
 
 std::vector<std::shared_ptr<Process>> Scheduler::getRunningProcesses() const {
     std::vector<std::shared_ptr<Process>> running;
     for (const auto& core : cores_) {
-        if (core->isBusy()) {
-            auto p = core->getRunningProcess();
-            if (p) {
-                running.push_back(p);
-            }
-        }
+        if (core->isBusy()) running.push_back(core->getRunningProcess());
     }
     return running;
 }
@@ -123,22 +120,20 @@ std::vector<std::shared_ptr<Process>> Scheduler::getSleepingProcesses() const {
 
 double Scheduler::getCpuUtilization() const {
     if (numCpus_ == 0) return 0.0;
-
-    int busyCores = getCoresUsed();
-    double utilization = static_cast<double>(busyCores) / numCpus_ * 100.0;
-
-    return utilization;
+    return static_cast<double>(getCoresUsed()) / numCpus_ * 100.0;
 }
 
-int Scheduler::getCoresUsed() const {
-    return static_cast<int>(std::count_if(cores_.begin(), cores_.end(), [](const auto& core) {
+size_t Scheduler::getCoresUsed() const {
+    return std::count_if(cores_.begin(), cores_.end(), [](const auto& core) {
         return core->isBusy();
-        }));
+        });
 }
 
-int Scheduler::getCoresAvailable() const {
+
+size_t Scheduler::getCoresAvailable() const {
     return numCpus_ - getCoresUsed();
 }
+
 
 void Scheduler::updateCoreUtilization(int coreId, uint64_t ticksUsed) {
     if (coreId >= 0 && coreId < numCpus_) {
@@ -153,19 +148,7 @@ Core* Scheduler::getCore(int index) const {
     return nullptr;
 }
 
-void Scheduler::addFinishedProcess(std::shared_ptr<Process> p) {
-    std::lock_guard<std::mutex> lock(finishedProcessesMutex_);
-    if (finishedPIDs_.find(p->getPid()) == finishedPIDs_.end()) {
-        p->setFinishTime(time(nullptr));
-        finishedProcesses_.push_back(p);
-        finishedPIDs_.insert(p->getPid());
-        activeProcessesCount_--;  // Only if you incremented when submitted
-    }
-}
-
 void Scheduler::schedulerLoop() {
-    // if (cores_.empty()) return;
-
     while (running_.load()) {
         // Wake sleeping processes
         {
@@ -184,9 +167,21 @@ void Scheduler::schedulerLoop() {
             }
         }
 
+        // Retry memory-pending processes
+        while (!memoryPendingQueue.empty()) {
+            auto p = memoryPendingQueue.front();
+            if (memoryManager_.allocateMemory(p)) {
+                readyQueue_.push(p);
+                memoryPendingQueue.pop();
+            }
+            else {
+                break;
+            }
+        }
+
         // Assign ready processes to free cores
         for (size_t i = 0; i < cores_.size(); ++i) {
-            int index = (nextCoreIndex_ + i) % cores_.size();
+            size_t index = (nextCoreIndex_ + i) % cores_.size();
             auto& core = cores_[index];
 
             if (!core->isBusy()) {
@@ -194,7 +189,6 @@ void Scheduler::schedulerLoop() {
                 if (readyQueue_.try_pop(p)) {
                     uint64_t quantum = (schedulerType_ == "rr") ? quantumCycles_ : UINT64_MAX;
                     if (!core->tryAssign(p, quantum)) {
-                        std::cout << "[Scheduler] Core-" << index << " failed to assign process " << p->getName() << ". Requeuing.\n";
                         requeueProcess(p);
                     }
                     else {
@@ -204,21 +198,20 @@ void Scheduler::schedulerLoop() {
             }
         }
 
-        // Move finished processes (deduplicated)
+        // Reap finished processes
         {
             std::lock_guard<std::mutex> lock(finishedProcessesMutex_);
             for (auto& core : cores_) {
                 auto p = core->getRunningProcess();
-                if (p && p->isFinished()) {
-                    int pid = p->getPid();
-                    if (finishedPIDs_.find(pid) == finishedPIDs_.end()) {
-                        p->setFinishTime(time(nullptr));
-                        finishedProcesses_.push_back(p);
-                        finishedPIDs_.insert(pid);
-                        activeProcessesCount_--;
-                    }
-                }
+                if (p && p->isFinished()) addFinishedProcess(p);
             }
+        }
+
+        // Dump memory snapshot every quantum
+        uint64_t now = globalCpuTicks.load();
+        if ((now - lastQuantumSnapshot_) >= quantumCycles_) {
+            memoryManager_.logMemorySnapshot();
+            lastQuantumSnapshot_ = now;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -228,8 +221,8 @@ void Scheduler::schedulerLoop() {
 void Scheduler::processGeneratorLoop() {
     while (processGenEnabled_.load()) {
         uint64_t now = globalCpuTicks.load();
-        if (now >= lastProcessGenTick_.load() + batchProcessFreq_) {
-            int pid = getNextProcessId();
+        if (now >= lastProcessGenTick_ + batchProcessFreq_) {
+            uint64_t pid = getNextProcessId();
             std::string name = "p" + std::to_string(pid);
             auto proc = std::make_shared<Process>(pid, name);
             proc->genRandInst(minInstructions_, maxInstructions_);
