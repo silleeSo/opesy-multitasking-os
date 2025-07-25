@@ -1,4 +1,7 @@
 #include "MainMemory.h"
+#include <sstream>
+#include <iomanip>
+
 
 MainMemory::MainMemory(int totalBytes, int frameSize)
     : totalMemoryBytes(totalBytes), frameSize(frameSize) {
@@ -16,7 +19,7 @@ int MainMemory::getFreeFrameIndex() const {
 }
 
 bool MainMemory::isFrameValid(int index) const {
-    return (index >= 0 && index < validBits.size()) ? validBits[index] : false;
+    return (index >= 0 && static_cast<size_t>(index) < validBits.size()) ? validBits[static_cast<size_t>(index)] : false;
 }
 
 void MainMemory::setFrame(int index, const std::string& pageId) {
@@ -69,10 +72,36 @@ const std::vector<bool>& MainMemory::getValidBits() const {
 }
 
 void MainMemory::freeFramesByPagePrefix(const std::string& prefix) {
-    for (int i = 0; i < frameTable.size(); ++i) {
+    for (size_t i = 0; i < frameTable.size(); ++i) {
         if (validBits[i] && frameTable[i].find(prefix) == 0) {
-            clearFrame(i); // Also marks it invalid
+            clearFrame(static_cast<int>(i)); // if clearFrame expects int
         }
     }
 }
+
+std::vector<uint16_t> MainMemory::dumpPageFromFrame(int frameIndex, const std::string& baseAddress) {
+    std::vector<uint16_t> data;
+    int base = std::stoi(baseAddress, nullptr, 16);
+
+    for (int i = 0; i < frameSize; ++i) {
+        std::stringstream ss;
+        ss << "0x" << std::hex << std::uppercase << (base + i);
+        std::string addr = ss.str();
+
+        data.push_back(readMemory(addr));  // Push 0 if not exists
+    }
+
+    return data;
+}
+
+void MainMemory::loadPageToFrame(int frameIndex, const std::vector<uint16_t>& data, const std::string& baseAddress) {
+    int base = std::stoi(baseAddress, nullptr, 16);
+    for (size_t i = 0; i < data.size(); ++i) {
+        std::stringstream ss;
+        ss << "0x" << std::hex << std::uppercase << (base + static_cast<int>(i));
+        std::string addr = ss.str();
+        writeMemory(addr, data[i]);
+    }
+}
+
 

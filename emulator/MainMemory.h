@@ -27,6 +27,10 @@ public:
 
     void freeFramesByPagePrefix(const std::string& prefix);
 
+    // NEW for demand paging
+    std::vector<uint16_t> dumpPageFromFrame(int frameIndex, const std::string& baseAddress);
+    void loadPageToFrame(int frameIndex, const std::vector<uint16_t>& data, const std::string& baseAddress);
+
 private:
     int totalMemoryBytes;
     int frameSize;

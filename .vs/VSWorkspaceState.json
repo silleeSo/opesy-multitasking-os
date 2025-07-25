@@ -1,6 +1,8 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\emulator"
   ],
+  "SelectedNode": "\\emulator\\Process.h",
   "PreviewInSolutionExplorer": false
 }

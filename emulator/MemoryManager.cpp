@@ -1,3 +1,6 @@
+// ============================
+// MemoryManager.cpp (UPDATED)
+// ============================
 #include "MemoryManager.h"
 #include "Process.h"
 #include <sstream>
@@ -12,19 +15,17 @@ MemoryManager::MemoryManager(MainMemory& mem, int minMemProc, int maxMemProc, in
     pagedInCount(0), pagedOutCount(0), nextPageId(0) {}
 
 bool MemoryManager::allocateMemory(std::shared_ptr<Process> process) {
-    // Generate random memory size for the process between min and max
     int requestedBytes = getRandomMemorySize();
     int pages = (requestedBytes + frameSize - 1) / frameSize;
 
     for (int i = 0; i < pages; ++i) {
         int freeIndex = memory.getFreeFrameIndex();
         std::stringstream ss;
-        ss << process->getName() << "_page" << i;
+        ss << "p" << process->getPid() << "_page" << i;
         std::string pageId = ss.str();
 
         if (freeIndex == -1) {
-            // No available frame, evict one
-            evictPage(0); // For now, use first-fit eviction
+            evictPage(0);
             freeIndex = memory.getFreeFrameIndex();
         }
 
@@ -33,7 +34,6 @@ bool MemoryManager::allocateMemory(std::shared_ptr<Process> process) {
 
         process->getPageTable()[i] = freeIndex;
         process->getValidBits()[i] = true;
-
         ++pagedInCount;
     }
     return true;
@@ -47,7 +47,7 @@ int MemoryManager::getRandomMemorySize() const {
 }
 
 std::string MemoryManager::allocateVariable(std::shared_ptr<Process> process, const std::string& varName) {
-    if (process->getSymbolTable().size() >= 32) return "";
+    if (process->getSymbolTable().size() * 2 >= maxMemPerProc) return "";
 
     uint16_t base = static_cast<uint16_t>(process->getPid()) << 8;
     uint16_t offset = static_cast<uint16_t>(process->getSymbolTable().size() * 2);
@@ -64,8 +64,7 @@ bool MemoryManager::isAddressInMemory(const std::string& addr) {
     return memory.addressExists(addr);
 }
 
-void MemoryManager::deallocate(uint64_t  pid) {
-    // Assumes page IDs were named like: "p42_page0", "p42_page1", etc.
+void MemoryManager::deallocate(uint64_t pid) {
     std::string prefix = "p" + std::to_string(pid) + "_page";
     memory.freeFramesByPagePrefix(prefix);
 }
@@ -76,7 +75,6 @@ uint16_t MemoryManager::read(const std::string& addr, std::shared_ptr<Process> p
     int offset = result.second;
 
     int physicalAddr = frame * frameSize + offset;
-
     std::stringstream ss;
     ss << "0x" << std::hex << std::uppercase << physicalAddr;
     return memory.readMemory(ss.str());
@@ -88,12 +86,10 @@ void MemoryManager::write(const std::string& addr, uint16_t value, std::shared_p
     int offset = result.second;
 
     int physicalAddr = frame * frameSize + offset;
-
     std::stringstream ss;
     ss << "0x" << std::hex << std::uppercase << physicalAddr;
     memory.writeMemory(ss.str(), value);
 }
-
 
 std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::shared_ptr<Process> p) {
     int addr = std::stoi(logicalAddr, nullptr, 16);
@@ -101,15 +97,42 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
     int offset = addr % frameSize;
 
     if (p->getValidBits().count(pageNum) == 0 || !p->getValidBits()[pageNum]) {
-        throw std::runtime_error("Page fault at logical address " + logicalAddr);
+        handlePageFault(p, pageNum);
     }
 
     int frameIndex = p->getPageTable().at(pageNum);
     return { frameIndex, offset };
 }
 
+void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
+    std::stringstream ss;
+    ss << "p" << p->getPid() << "_page" << pageNum;
+    std::string pageId = ss.str();
+
+    int frameIndex = memory.getFreeFrameIndex();
+    if (frameIndex == -1) {
+        evictPage(0);
+        frameIndex = memory.getFreeFrameIndex();
+    }
+
+    if (backingStore_.count(pageId)) {
+        std::string baseAddr = "0x" + std::to_string((p->getPid() << 8) + pageNum * frameSize);
+        memory.loadPageToFrame(frameIndex, backingStore_[pageId], baseAddr);
+    }
+
+    memory.setFrame(frameIndex, pageId);
+    memory.markFrameValid(frameIndex);
+    p->getPageTable()[pageNum] = frameIndex;
+    p->getValidBits()[pageNum] = true;
+    ++pagedInCount;
+}
+
 void MemoryManager::evictPage(int index) {
     std::string pageId = memory.getPageAtFrame(index);
+    std::string baseAddr = "0x" + std::to_string(index * frameSize);
+    std::vector<uint16_t> data = memory.dumpPageFromFrame(index, baseAddr);
+
+    backingStore_[pageId] = data;
     writeToBackingStore(pageId);
     memory.clearFrame(index);
     ++pagedOutCount;

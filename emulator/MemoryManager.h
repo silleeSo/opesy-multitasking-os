@@ -1,12 +1,14 @@
+// ============================
+// MemoryManager.h (UPDATED)
+// ============================
 #pragma once
 #include "MainMemory.h"
 #include <unordered_map>
 #include <string>
 #include <fstream>
 #include <memory>
+#include <vector>
 #include <utility>
-#include <memory>
-
 
 class Process;
 
@@ -22,6 +24,7 @@ public:
     void write(const std::string& addr, uint16_t value, std::shared_ptr<Process> p);
 
     void evictPage(int index);
+    void handlePageFault(std::shared_ptr<Process> p, int pageNum);
     void writeToBackingStore(const std::string& pageId);
     void logMemorySnapshot();
 
@@ -41,4 +44,6 @@ private:
 
     std::pair<int, int> translate(std::string logicalAddr, std::shared_ptr<Process> p);
     int getRandomMemorySize() const;
+
+    std::unordered_map<std::string, std::vector<uint16_t>> backingStore_;
 };

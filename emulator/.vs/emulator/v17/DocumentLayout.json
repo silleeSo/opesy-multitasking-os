@@ -3,28 +3,44 @@
   "WorkspaceRootPath": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MemoryManager.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MemoryManager.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MemoryManager.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MemoryManager.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Core.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Core.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MainMemory.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MainMemory.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Console.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Console.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MainMemory.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MainMemory.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MainMemory.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MainMemory.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\config.txt||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:config.txt||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Process.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Process.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Process.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Process.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MemoryManager.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MemoryManager.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MemoryManager.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MemoryManager.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\ThreadedQueue.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -43,10 +59,6 @@
       "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Scheduler.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Process.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Process.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\GlobalState.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:GlobalState.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
@@ -57,22 +69,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Core.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Core.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Core.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Core.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Console.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Console.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Console.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Console.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\config.txt||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:config.txt||{8B382828-6202-11D1-8870-0000F87579D2}"
     }
   ],
   "DocumentGroupContainers": [
@@ -82,11 +78,11 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 9,
               "Title": "MemoryManager.h",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MemoryManager.h",
               "RelativeDocumentMoniker": "MemoryManager.h",
@@ -94,12 +90,11 @@
               "RelativeToolTip": "MemoryManager.h",
               "ViewState": "AQIAAAAAAAAAAAAAAAAAAAcAAAARAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-07-24T10:50:31.411Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T10:50:31.411Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 8,
               "Title": "MemoryManager.cpp",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MemoryManager.cpp",
               "RelativeDocumentMoniker": "MemoryManager.cpp",
@@ -107,12 +102,11 @@
               "RelativeToolTip": "MemoryManager.cpp",
               "ViewState": "AQIAACcAAAAAAAAAAAAAAEUAAAAyAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-07-24T10:50:20.513Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T10:50:20.513Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 4,
               "Title": "MainMemory.h",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MainMemory.h",
               "RelativeDocumentMoniker": "MainMemory.h",
@@ -131,14 +125,14 @@
               "RelativeDocumentMoniker": "MainMemory.cpp",
               "ToolTip": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\MainMemory.cpp",
               "RelativeToolTip": "MainMemory.cpp",
-              "ViewState": "AQIAAAAAAAAAAAAAAAAAAEUAAAAAAAAA",
+              "ViewState": "AQIAADkAAAAAAAAAAAAawGYAAAAjAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2025-07-24T10:44:23.733Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
+              "DocumentIndex": 5,
               "Title": "config.txt",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\config.txt",
               "RelativeDocumentMoniker": "config.txt",
@@ -146,24 +140,25 @@
               "RelativeToolTip": "config.txt",
               "ViewState": "AQIAAAAAAAAAAAAAAAAAAAYAAAAQAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003109|",
-              "WhenOpened": "2025-07-24T08:44:33.363Z"
+              "WhenOpened": "2025-07-24T08:44:33.363Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 0,
               "Title": "main.cpp",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\main.cpp",
               "RelativeDocumentMoniker": "main.cpp",
               "ToolTip": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\main.cpp",
               "RelativeToolTip": "main.cpp",
-              "ViewState": "AQIAAAAAAAAAAAAAAAAAAA8AAAABAAAA",
+              "ViewState": "AQIAAAIAAAAAAAAAAAAkwAgAAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2025-07-24T08:18:47.838Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 10,
               "Title": "ThreadedQueue.h",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\ThreadedQueue.h",
               "RelativeDocumentMoniker": "ThreadedQueue.h",
@@ -171,38 +166,24 @@
               "RelativeToolTip": "ThreadedQueue.h",
               "ViewState": "AQIAABgAAAAAAAAAAAAiwD8AAAAWAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-07-24T08:15:42.149Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T08:15:42.149Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 16,
-              "Title": "Console.cpp",
-              "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Console.cpp",
-              "RelativeDocumentMoniker": "Console.cpp",
-              "ToolTip": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Console.cpp",
-              "RelativeToolTip": "Console.cpp",
-              "ViewState": "AQIAANwBAAAAAAAAAAAkwOMBAABHAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-07-24T08:12:57.155Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 2,
               "Title": "Console.h",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Console.h",
               "RelativeDocumentMoniker": "Console.h",
               "ToolTip": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Console.h",
               "RelativeToolTip": "Console.h",
-              "ViewState": "AQIAAIkBAAAAAAAAAAAiwOUBAAAJAAAA",
+              "ViewState": "AQIAAAUCAAAAAAAAAAAAABQCAAACAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
               "WhenOpened": "2025-07-24T08:12:51.19Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 11,
               "Title": "Screen.h",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Screen.h",
               "RelativeDocumentMoniker": "Screen.h",
@@ -210,12 +191,11 @@
               "RelativeToolTip": "Screen.h",
               "ViewState": "AQIAACEAAAAAAAAAAAAiwEAAAAACAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-07-24T08:09:15.969Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T08:09:15.969Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 12,
               "Title": "Scheduler.h",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Scheduler.h",
               "RelativeDocumentMoniker": "Scheduler.h",
@@ -223,12 +203,11 @@
               "RelativeToolTip": "Scheduler.h",
               "ViewState": "AQIAADgAAAAAAAAAAAAiwEoAAAAhAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-07-24T08:08:03.029Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T08:08:03.029Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 13,
               "Title": "Scheduler.cpp",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Scheduler.cpp",
               "RelativeDocumentMoniker": "Scheduler.cpp",
@@ -236,25 +215,24 @@
               "RelativeToolTip": "Scheduler.cpp",
               "ViewState": "AQIAAAAAAAAAAAAAAAAAAOAAAAAFAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-07-24T08:07:32.872Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T08:07:32.872Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 1,
               "Title": "Core.cpp",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Core.cpp",
               "RelativeDocumentMoniker": "Core.cpp",
               "ToolTip": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Core.cpp",
               "RelativeToolTip": "Core.cpp",
-              "ViewState": "AQIAADcAAAAAAAAAAAAiwFYAAAABAAAA",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAFYAAAABAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2025-07-24T08:06:23.852Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 16,
               "Title": "Core.h",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Core.h",
               "RelativeDocumentMoniker": "Core.h",
@@ -262,25 +240,24 @@
               "RelativeToolTip": "Core.h",
               "ViewState": "AQIAABMAAAAAAAAAAAAiwDIAAAACAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-07-24T08:06:14.29Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T08:06:14.29Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 6,
               "Title": "Process.h",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Process.h",
               "RelativeDocumentMoniker": "Process.h",
               "ToolTip": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Process.h",
               "RelativeToolTip": "Process.h",
-              "ViewState": "AQIAADYAAAAAAAAAAAAAAFwAAAAAAAAA",
+              "ViewState": "AQIAAC8AAAAAAAAAAAAQwEUAAAASAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
               "WhenOpened": "2025-07-24T07:58:00.997Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 14,
               "Title": "GlobalState.h",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\GlobalState.h",
               "RelativeDocumentMoniker": "GlobalState.h",
@@ -288,12 +265,11 @@
               "RelativeToolTip": "GlobalState.h",
               "ViewState": "AQIAAAAAAAAAAAAAAAAAAAYAAAAsAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-07-24T07:57:28.228Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T07:57:28.228Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 15,
               "Title": "GlobalState.cpp",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\GlobalState.cpp",
               "RelativeDocumentMoniker": "GlobalState.cpp",
@@ -301,21 +277,19 @@
               "RelativeToolTip": "GlobalState.cpp",
               "ViewState": "AQIAAAAAAAAAAAAAAAAAAAMAAAAoAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-07-24T07:57:19.414Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T07:57:19.414Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 7,
               "Title": "Process.cpp",
               "DocumentMoniker": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Process.cpp",
               "RelativeDocumentMoniker": "Process.cpp",
               "ToolTip": "C:\\Users\\ADMIN\\Documents\\FINAL CSOPESY Files\\opesy-multitasking-os\\emulator\\Process.cpp",
               "RelativeToolTip": "Process.cpp",
-              "ViewState": "AQIAADABAAAAAAAAAAAiwD4BAAAiAAAA",
+              "ViewState": "AQIAACABAAAAAAAAAAAQwE8BAAABAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-07-24T07:57:08.667Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-07-24T07:57:08.667Z"
             }
           ]
         }
