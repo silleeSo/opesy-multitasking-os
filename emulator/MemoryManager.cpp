@@ -12,7 +12,6 @@ MemoryManager::MemoryManager(MainMemory& mem, int minMemProc, int maxMemProc, in
     pagedInCount(0), pagedOutCount(0), nextPageId(0) {
 }
 
-// CHANGED: Dana - allocateMemory now uses the user-specified size instead of a random one.
 bool MemoryManager::allocateMemory(std::shared_ptr<Process> process, int requestedBytes) {
     process->setAllocatedMemory(requestedBytes);
 
@@ -31,9 +30,8 @@ int MemoryManager::getRandomMemorySize() const {
     return dist(gen);
 }
 
-// CHANGED: Dana - Corrected the symbol table limit check to be a fixed 64 bytes.
 std::string MemoryManager::allocateVariable(std::shared_ptr<Process> process, const std::string& varName) {
-    if (process->getSymbolTable().size() * 2 >= 64) { // Symbol table is fixed at 64 bytes (32 variables)
+    if (process->getSymbolTable().size() * 2 >= 64) {
         return "";
     }
 
@@ -48,7 +46,6 @@ std::string MemoryManager::allocateVariable(std::shared_ptr<Process> process, co
     return address;
 }
 
-// CHANGED: Dana - Added the missing function definition for isAddressInMemory
 bool MemoryManager::isAddressInMemory(const std::string& addr) {
     return memory.addressExists(addr);
 }
@@ -96,7 +93,8 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
     int pageNum = addr / frameSize;
     int offset = addr % frameSize;
 
-    if (p->getValidBits().count(pageNum) == 0 || !p->getValidBits()[pageNum]) {
+    // A page fault occurs if the page is not in the process's valid bit map, or if it is marked as not valid (not in memory).
+    if (p->getValidBits().count(pageNum) == 0 || !p->getValidBits().at(pageNum)) {
         handlePageFault(p, pageNum);
     }
 
@@ -105,6 +103,7 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
 }
 
 
+// CHANGED: Dana - Implemented FIFO page replacement logic in handlePageFault
 void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
     std::stringstream ss;
     ss << "p" << p->getPid() << "_page" << pageNum;
@@ -112,20 +111,30 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
 
     int frameIndex = memory.getFreeFrameIndex();
     if (frameIndex == -1) {
-        evictPage(0); // Placeholder for a real replacement algorithm
-        frameIndex = memory.getFreeFrameIndex();
+        // If no free frames, get a victim using FIFO
+        int victimFrame = getVictimFrame_FIFO();
+        if (victimFrame != -1) {
+            evictPage(victimFrame);
+            frameIndex = victimFrame; // The newly freed frame is our target
+        }
     }
 
-    if (backingStore_.count(pageId)) {
-        std::string baseAddr = "0x" + std::to_string((p->getPid() << 8) + pageNum * frameSize);
-        memory.loadPageToFrame(frameIndex, backingStore_[pageId], baseAddr);
-    }
+    if (frameIndex != -1) {
+        if (backingStore_.count(pageId)) {
+            std::string baseAddr = "0x" + std::to_string((p->getPid() << 8) + pageNum * frameSize);
+            memory.loadPageToFrame(frameIndex, backingStore_[pageId], baseAddr);
+        }
 
-    memory.setFrame(frameIndex, pageId);
-    memory.markFrameValid(frameIndex);
-    p->getPageTable()[pageNum] = frameIndex;
-    p->getValidBits()[pageNum] = true;
-    ++pagedInCount;
+        memory.setFrame(frameIndex, pageId);
+        memory.markFrameValid(frameIndex);
+        p->getPageTable()[pageNum] = frameIndex;
+        p->getValidBits()[pageNum] = true;
+
+        // Add the newly used frame to the back of the FIFO queue
+        frame_fifo_queue_.push(frameIndex);
+
+        ++pagedInCount;
+    }
 }
 
 void MemoryManager::evictPage(int index) {
@@ -139,6 +148,16 @@ void MemoryManager::evictPage(int index) {
     writeToBackingStore(pageId);
     memory.clearFrame(index);
     ++pagedOutCount;
+}
+
+// CHANGED: Dana - Added helper function to get victim frame based on FIFO
+int MemoryManager::getVictimFrame_FIFO() {
+    if (frame_fifo_queue_.empty()) {
+        return -1; // Should not happen if memory is full and all frames are tracked
+    }
+    int victimFrame = frame_fifo_queue_.front();
+    frame_fifo_queue_.pop();
+    return victimFrame;
 }
 
 void MemoryManager::writeToBackingStore(const std::string& pageId) {
