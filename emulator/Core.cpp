@@ -2,9 +2,11 @@
 #include "Scheduler.h"
 #include "GlobalState.h"
 #include <iostream>
+#include <stdexcept> // For std::runtime_error
 
 Core::Core(int id, Scheduler* scheduler, uint64_t delayPerExec)
-    : id_(id), busy_(false), scheduler(scheduler), delayPerExec_(delayPerExec) {}
+    : id_(id), busy_(false), scheduler(scheduler), delayPerExec_(delayPerExec) {
+}
 
 Core::~Core() {
     if (worker_.joinable()) {
@@ -24,7 +26,7 @@ bool Core::tryAssign(std::shared_ptr<Process> p, uint64_t quantum) {
     if (busy_) return false;
 
     if (worker_.joinable()) {
-        worker_.join();  // Ensure previous thread is cleanly joined
+        worker_.join();
     }
 
     runningProcess = p;
@@ -44,6 +46,7 @@ bool Core::tryAssign(std::shared_ptr<Process> p, uint64_t quantum) {
     return true;
 }
 
+// CHANGED: Dana - Wrapped instruction execution in a try-catch block to handle MAV exceptions
 void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
     uint64_t executed = 0;
 
@@ -53,16 +56,21 @@ void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
             break;
         }
 
-        bool ran = p->runOneInstruction(id_);
-        if (!ran) break;
+        try {
+            bool ran = p->runOneInstruction(id_);
+            if (!ran) break;
+        }
+        catch (const std::runtime_error& e) {
+            // This block catches the "Memory Access Violation" exception.
+            // The process state is already set by the MemoryManager.
+            std::cerr << "[Core-" << id_ << "] Process " << p->getPid() << " terminated: " << e.what() << std::endl;
+            break; // Exit the loop to terminate the process execution on this core.
+        }
 
-        // Tick only if instruction was executed
         globalCpuTicks.fetch_add(1);
-        scheduler->updateCoreUtilization(id_, 1);  // 1 tick of busy CPU time
-
+        scheduler->updateCoreUtilization(id_, 1);
         executed++;
 
-        // Apply short artificial delay for debug visibility
         if (delayPerExec_ == 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
@@ -74,7 +82,6 @@ void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
         }
     }
 
-    //  Moved outside of the delay block
     if (p->isFinished()) {
         if (scheduler) scheduler->addFinishedProcess(p);
     }

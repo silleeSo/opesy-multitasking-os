@@ -20,33 +20,27 @@
 static std::random_device rd;
 static std::mt19937 gen(rd());
 
+// CHANGED: Dana - Initialized new MAV-related member variables in the constructor
 Process::Process(uint64_t pid, std::string name, MemoryManager* memManager)
-    : pid_(pid), name_(std::move(name)), finished_(false), isSleeping_(false), sleepTargetTick_(0), memoryManager_(memManager) {
+    : pid_(pid), name_(std::move(name)), finished_(false), isSleeping_(false), sleepTargetTick_(0), memoryManager_(memManager),
+    terminationReason_(TerminationReason::RUNNING), allocatedMemoryBytes_(0), violationTime_(0) {
 }
 
 void Process::execute(const Instruction& ins, int coreId) {
-    // CHANGED: Dana - The getValue lambda now reads from memory via the MemoryManager.
+    // CHANGED: Dana - The getValue lambda now uses shared_from_this() for safer memory operations
     auto getValue = [this](const std::string& token) -> uint16_t {
-        // Check if the token is a literal number
         if (isdigit(token[0]) || (token[0] == '-' && token.size() > 1)) {
-            try {
-                return static_cast<uint16_t>(std::stoi(token));
-            }
-            catch (const std::out_of_range&) {
-                return 0;
-            }
+            try { return static_cast<uint16_t>(std::stoi(token)); }
+            catch (const std::out_of_range&) { return 0; }
         }
-        // Otherwise, it's a variable name. Look it up in the symbol table.
         else {
             if (symbolTable_.count(token)) {
                 const std::string& address = symbolTable_.at(token);
                 if (memoryManager_) {
-                    // Pass a temporary shared_ptr to this. A better solution would be to pass the process's shared_ptr down.
-                    return memoryManager_->read(address, std::shared_ptr<Process>(this, [](Process*) {}));
+                    return memoryManager_->read(address, shared_from_this());
                 }
-                return 0; // Return 0 if memory manager is not available
             }
-            return 0; // Return 0 if variable not found
+            return 0;
         }
         };
 
@@ -56,31 +50,21 @@ void Process::execute(const Instruction& ins, int coreId) {
         return static_cast<uint16_t>(val);
         };
 
-    // CHANGED: Dana - DECLARE now allocates a logical address and writes the initial value to memory.
     if (ins.opcode == 1 && ins.args.size() >= 1) { // DECLARE
-        // Enforce 32-variable limit
         if (symbolTable_.size() >= 32) {
             logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. DECLARE ignored.");
             return;
         }
-
         const std::string& varName = ins.args[0];
-
-        // Calculate the logical address for the new variable
         std::stringstream ss;
         ss << "0x" << std::hex << std::setw(4) << std::setfill('0') << symbolTableOffset_;
         std::string logicalAddress = ss.str();
-
-        // Map the variable name to its new address
         symbolTable_[varName] = logicalAddress;
-        symbolTableOffset_ += 2; // Each variable is 2 bytes
-
-        // If an initial value is provided, write it to the new address
+        symbolTableOffset_ += 2;
         if (ins.args.size() == 2) {
             uint16_t initialValue = clamp(getValue(ins.args[1]));
-            if (memoryManager_) {
-                memoryManager_->write(logicalAddress, initialValue, std::shared_ptr<Process>(this, [](Process*) {}));
-            }
+            // CHANGED: Dana - Pass shared_from_this() to memory operations
+            if (memoryManager_) memoryManager_->write(logicalAddress, initialValue, shared_from_this());
         }
     }
     else if (ins.opcode == 2 && ins.args.size() == 3) { // ADD
@@ -89,7 +73,8 @@ void Process::execute(const Instruction& ins, int coreId) {
         uint16_t b = getValue(ins.args[2]);
         if (symbolTable_.count(destVar) && memoryManager_) {
             const std::string& destAddr = symbolTable_.at(destVar);
-            memoryManager_->write(destAddr, clamp(static_cast<int64_t>(a) + static_cast<int64_t>(b)), std::shared_ptr<Process>(this, [](Process*) {}));
+            // CHANGED: Dana - Pass shared_from_this() to memory operations
+            memoryManager_->write(destAddr, clamp(static_cast<int64_t>(a) + static_cast<int64_t>(b)), shared_from_this());
         }
     }
     else if (ins.opcode == 3 && ins.args.size() == 3) { // SUB
@@ -98,15 +83,14 @@ void Process::execute(const Instruction& ins, int coreId) {
         uint16_t b = getValue(ins.args[2]);
         if (symbolTable_.count(destVar) && memoryManager_) {
             const std::string& destAddr = symbolTable_.at(destVar);
-            memoryManager_->write(destAddr, clamp(static_cast<int64_t>(a) - static_cast<int64_t>(b)), std::shared_ptr<Process>(this, [](Process*) {}));
+            // CHANGED: Dana - Pass shared_from_this() to memory operations
+            memoryManager_->write(destAddr, clamp(static_cast<int64_t>(a) - static_cast<int64_t>(b)), shared_from_this());
         }
     }
     else if (ins.opcode == 4) { // PRINT
         std::string output = "Hello world from " + name_ + "!";
         std::stringstream ss;
-        if (coreId >= 0) {
-            ss << "Core:" << coreId << " ";
-        }
+        if (coreId >= 0) ss << "Core:" << coreId << " ";
         ss << "\"" << output << "\"";
         logs_.emplace_back(time(nullptr), ss.str());
     }
@@ -116,7 +100,7 @@ void Process::execute(const Instruction& ins, int coreId) {
         sleepTargetTick_ = globalCpuTicks.load() + ticks;
         insCount_++;
     }
-    else if (ins.opcode == 6 && ins.args.size() == 1) { // FOR(repeats)
+    else if (ins.opcode == 6 && ins.args.size() == 1) { // FOR
         uint16_t repeatCount = getValue(ins.args[0]);
         if (repeatCount > 1000) repeatCount = 1000;
         if (loopStack.size() >= 3) return;
@@ -126,31 +110,29 @@ void Process::execute(const Instruction& ins, int coreId) {
         if (!loopStack.empty()) {
             LoopState& currentLoop = loopStack.back();
             currentLoop.repeats--;
-            if (currentLoop.repeats > 0) {
-                insCount_ = currentLoop.startIns - 1;
-            }
-            else {
-                loopStack.pop_back();
-            }
+            if (currentLoop.repeats > 0) insCount_ = currentLoop.startIns - 1;
+            else loopStack.pop_back();
         }
         else {
             logs_.emplace_back(time(nullptr), "[Error] END without matching FOR!");
         }
     }
-    else if (ins.opcode == 8 && ins.args.size() == 2) { // READ var, memory_address
+    else if (ins.opcode == 8 && ins.args.size() == 2) { // READ
         const std::string& varName = ins.args[0];
         const std::string& sourceAddress = ins.args[1];
         if (memoryManager_ && symbolTable_.count(varName)) {
-            uint16_t value = memoryManager_->read(sourceAddress, std::shared_ptr<Process>(this, [](Process*) {}));
+            // CHANGED: Dana - Pass shared_from_this() to memory operations
+            uint16_t value = memoryManager_->read(sourceAddress, shared_from_this());
             const std::string& destAddress = symbolTable_.at(varName);
-            memoryManager_->write(destAddress, value, std::shared_ptr<Process>(this, [](Process*) {}));
+            memoryManager_->write(destAddress, value, shared_from_this());
         }
     }
-    else if (ins.opcode == 9 && ins.args.size() == 2) { // WRITE memory_address, value
+    else if (ins.opcode == 9 && ins.args.size() == 2) { // WRITE
         const std::string& destAddress = ins.args[0];
         uint16_t value = getValue(ins.args[1]);
         if (memoryManager_) {
-            memoryManager_->write(destAddress, value, std::shared_ptr<Process>(this, [](Process*) {}));
+            // CHANGED: Dana - Pass shared_from_this() to memory operations
+            memoryManager_->write(destAddress, value, shared_from_this());
         }
     }
 }
@@ -158,14 +140,11 @@ void Process::execute(const Instruction& ins, int coreId) {
 void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
     insList.clear();
     logs_.clear();
-    // CHANGED: Dana - Clear the symbol table and reset the offset instead of the old vars map.
     symbolTable_.clear();
     symbolTableOffset_ = 0;
     loopStack.clear();
     insCount_ = 0;
 
-    // ... (rest of genRandInst is mostly unchanged but would benefit from using the new system)
-    // For now, it will still generate valid instructions.
     std::uniform_int_distribution<uint64_t> distInstructions(min_ins, max_ins);
     uint64_t totalInstructions = distInstructions(gen);
 
@@ -244,7 +223,6 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
                 int innerOpcode = opcode_pool[distGeneralOp(gen)];
                 if (innerOpcode == 6 && currentDepth >= 3) continue;
                 body.opcode = innerOpcode;
-                // ... (inner switch cases for instruction bodies)
                 insList.push_back(body);
                 instructionsGenerated++;
             }
@@ -272,7 +250,7 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
 }
 
 bool Process::runOneInstruction(int coreId) {
-    if (finished_) return false;
+    if (isFinished()) return false;
 
     if (isSleeping_) {
         if (globalCpuTicks.load() >= sleepTargetTick_) {
@@ -285,19 +263,23 @@ bool Process::runOneInstruction(int coreId) {
     }
 
     if (insCount_ >= insList.size()) {
-        finished_ = true;
+        // CHANGED: Dana - Set termination reason to normal when instructions complete
+        setTerminationReason(TerminationReason::FINISHED_NORMALLY);
         return false;
     }
 
     execute(insList[insCount_], coreId);
+
+    // CHANGED: Dana - Added check to see if execute() caused a termination (e.g., MAV)
+    if (isFinished()) return false;
 
     if (!isSleeping_) {
         insCount_++;
     }
 
     if (insCount_ >= insList.size()) {
-        finished_ = true;
-        return false;
+        // CHANGED: Dana - Set termination reason to normal when instructions complete
+        setTerminationReason(TerminationReason::FINISHED_NORMALLY);
     }
 
     return true;
@@ -328,8 +310,12 @@ std::string Process::smi() const {
         }
     }
 
-    if (finished_) {
-        ss << "Finished!\n";
+    // CHANGED: Dana - Updated smi() to show specific termination status
+    if (terminationReason_ == TerminationReason::MEMORY_VIOLATION) {
+        ss << "Status: Terminated (Memory Access Violation)\n";
+    }
+    else if (isFinished()) {
+        ss << "Status: Finished!\n";
     }
     else if (isSleeping_) {
         ss << "Status: Sleeping (Until tick: " << sleepTargetTick_ << ")\n";
@@ -341,7 +327,6 @@ std::string Process::smi() const {
     ss << "Current instruction line: " << insCount_ << "\n";
     ss << "Lines of code: " << insList.size() << "\n";
 
-    // CHANGED: Dana - The "Variables" section now reads from the symbol table and fetches values from memory.
     ss << "Variables:\n";
     if (symbolTable_.empty()) {
         ss << "  (No variables declared)\n";
@@ -351,11 +336,15 @@ std::string Process::smi() const {
             const std::string& varName = pair.first;
             const std::string& address = pair.second;
             uint16_t value = 0;
-            if (memoryManager_) {
-                // This const_cast is not ideal, but necessary because smi() is const.
-                // It's safe here because read() doesn't modify the process state.
-                Process* nonConstThis = const_cast<Process*>(this);
-                value = memoryManager_->read(address, std::shared_ptr<Process>(nonConstThis, [](Process*) {}));
+            if (memoryManager_ && terminationReason_ != TerminationReason::MEMORY_VIOLATION) {
+                try {
+                    // CHANGED: Dana - Use shared_from_this() in const method via const_cast for safety
+                    Process* nonConstThis = const_cast<Process*>(this);
+                    value = memoryManager_->read(address, nonConstThis->shared_from_this());
+                }
+                catch (const std::runtime_error&) {
+                    // In case a read is attempted on a faulty process
+                }
             }
             ss << "  " << varName << " = " << value << " @ " << address << "\n";
         }

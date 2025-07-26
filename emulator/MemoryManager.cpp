@@ -1,6 +1,3 @@
-// ============================
-// MemoryManager.cpp (UPDATED)
-// ============================
 #include "MemoryManager.h"
 #include "Process.h"
 #include <sstream>
@@ -12,29 +9,18 @@
 
 MemoryManager::MemoryManager(MainMemory& mem, int minMemProc, int maxMemProc, int frameSz)
     : memory(mem), minMemPerProc(minMemProc), maxMemPerProc(maxMemProc), frameSize(frameSz),
-    pagedInCount(0), pagedOutCount(0), nextPageId(0) {}
+    pagedInCount(0), pagedOutCount(0), nextPageId(0) {
+}
 
 bool MemoryManager::allocateMemory(std::shared_ptr<Process> process) {
     int requestedBytes = getRandomMemorySize();
+    // CHANGED: Dana - Store the allocated memory size directly in the process object
+    process->setAllocatedMemory(requestedBytes);
+
     int pages = (requestedBytes + frameSize - 1) / frameSize;
-
     for (int i = 0; i < pages; ++i) {
-        int freeIndex = memory.getFreeFrameIndex();
-        std::stringstream ss;
-        ss << "p" << process->getPid() << "_page" << i;
-        std::string pageId = ss.str();
-
-        if (freeIndex == -1) {
-            evictPage(0);
-            freeIndex = memory.getFreeFrameIndex();
-        }
-
-        memory.setFrame(freeIndex, pageId);
-        memory.markFrameValid(freeIndex);
-
-        process->getPageTable()[i] = freeIndex;
-        process->getValidBits()[i] = true;
-        ++pagedInCount;
+        process->getPageTable()[i] = -1;
+        process->getValidBits()[i] = false;
     }
     return true;
 }
@@ -56,12 +42,8 @@ std::string MemoryManager::allocateVariable(std::shared_ptr<Process> process, co
 
     std::string address = ss.str();
     process->getSymbolTable()[varName] = address;
-    memory.writeMemory(address, 0);
+    write(address, 0, process);
     return address;
-}
-
-bool MemoryManager::isAddressInMemory(const std::string& addr) {
-    return memory.addressExists(addr);
 }
 
 void MemoryManager::deallocate(uint64_t pid) {
@@ -73,7 +55,6 @@ uint16_t MemoryManager::read(const std::string& addr, std::shared_ptr<Process> p
     std::pair<int, int> result = translate(addr, p);
     int frame = result.first;
     int offset = result.second;
-
     int physicalAddr = frame * frameSize + offset;
     std::stringstream ss;
     ss << "0x" << std::hex << std::uppercase << physicalAddr;
@@ -84,15 +65,29 @@ void MemoryManager::write(const std::string& addr, uint16_t value, std::shared_p
     std::pair<int, int> result = translate(addr, p);
     int frame = result.first;
     int offset = result.second;
-
     int physicalAddr = frame * frameSize + offset;
     std::stringstream ss;
     ss << "0x" << std::hex << std::uppercase << physicalAddr;
     memory.writeMemory(ss.str(), value);
 }
 
+// CHANGED: Dana - Added comprehensive Memory Access Violation (MAV) check to translate()
 std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::shared_ptr<Process> p) {
-    int addr = std::stoi(logicalAddr, nullptr, 16);
+    int addr = 0;
+    try {
+        addr = std::stoi(logicalAddr, nullptr, 16);
+    }
+    catch (...) {
+        p->setTerminationReason(Process::TerminationReason::MEMORY_VIOLATION, logicalAddr);
+        throw std::runtime_error("Invalid memory address format.");
+    }
+
+    // This is the core Memory Access Violation check.
+    if (addr < 0 || addr >= p->getAllocatedMemory()) {
+        p->setTerminationReason(Process::TerminationReason::MEMORY_VIOLATION, logicalAddr);
+        throw std::runtime_error("Memory Access Violation");
+    }
+
     int pageNum = addr / frameSize;
     int offset = addr % frameSize;
 
@@ -104,6 +99,7 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
     return { frameIndex, offset };
 }
 
+
 void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
     std::stringstream ss;
     ss << "p" << p->getPid() << "_page" << pageNum;
@@ -111,7 +107,7 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
 
     int frameIndex = memory.getFreeFrameIndex();
     if (frameIndex == -1) {
-        evictPage(0);
+        evictPage(0); // Placeholder for a real replacement algorithm
         frameIndex = memory.getFreeFrameIndex();
     }
 
@@ -129,6 +125,8 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
 
 void MemoryManager::evictPage(int index) {
     std::string pageId = memory.getPageAtFrame(index);
+    if (pageId.empty()) return;
+
     std::string baseAddr = "0x" + std::to_string(index * frameSize);
     std::vector<uint16_t> data = memory.dumpPageFromFrame(index, baseAddr);
 
