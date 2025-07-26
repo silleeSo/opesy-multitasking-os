@@ -101,6 +101,14 @@ private:
         cout << "CPU tick thread started." << endl;
     }
 
+    // CHANGED: Dana - Added a helper function to validate memory size input
+    bool isValidMemorySize(int size) {
+        // Check if it's a power of 2
+        bool isPowerOfTwo = (size > 0) && ((size & (size - 1)) == 0);
+        // Check if it's within the valid range
+        bool inRange = (size >= 64 && size <= 65536);
+        return isPowerOfTwo && inRange;
+    }
 
     void handleCommand(const string& line) {
         clearScreen();
@@ -114,8 +122,9 @@ private:
             cout << "\nAvailable commands:" << endl;
             cout << "- initialize: Initialize the specifications of the OS (must be called first)" << endl;
             cout << "- screen -ls: Show active and finished processes" << endl;
-            cout << "- screen -s <process_name>: Create and attach to a new process screen" << endl;
-            cout << "- screen -r <process_name>: Attach to an existing process screen" << endl;
+            cout << "- screen -s <name> <size>: Create a new process with random instructions" << endl;
+            cout << "- screen -c <name> <size> \"<instr>\": Create a new process with custom instructions" << endl;
+            cout << "- screen -r <name>: Attach to an existing process screen" << endl;
             cout << "- scheduler-start: Start generating dummy processes and scheduling" << endl;
             cout << "- scheduler-stop: Stop generating dummy processes" << endl;
             cout << "- report-util: Generate CPU utilization report to file" << endl;
@@ -142,24 +151,75 @@ private:
             cout << "Error: Specifications have not yet been initialized! Type 'initialize' first." << endl;
         }
         else { // Commands requiring initialization
+            // CHANGED: Dana - Updated screen -s to parse memory size and validate it
             if (trimmedLine.rfind("screen -s ", 0) == 0) {
-                string processName = trimmedLine.substr(10);
-                if (processName.empty()) {
-                    cout << "Usage: screen -s <process_name>" << endl;
+                std::stringstream ss(trimmedLine.substr(10));
+                std::string processName;
+                int memorySize;
+
+                if (ss >> processName && ss >> memorySize) {
+                    if (isValidMemorySize(memorySize)) {
+                        auto newProcess = make_shared<Process>(scheduler_->getNextProcessId(), processName, memoryManager_.get());
+                        memoryManager_->allocateMemory(newProcess, memorySize);
+                        newProcess->genRandInst(cfg_.min_ins, cfg_.max_ins);
+                        scheduler_->submit(newProcess);
+                        cout << "Process '" << processName << "' created with " << memorySize << " bytes of memory." << endl;
+
+                        activeScreen_ = make_unique<Screen>(newProcess);
+                        activeScreen_->run();
+                        activeScreen_.reset();
+                        clearScreen();
+                    }
+                    else {
+                        cout << "Invalid memory allocation: Size must be a power of 2 between 64 and 65536." << endl;
+                    }
                 }
                 else {
-                    auto newProcess = make_shared<Process>(scheduler_->getNextProcessId(), processName, memoryManager_.get());
-                    memoryManager_->allocateMemory(newProcess);
-                    newProcess->genRandInst(cfg_.min_ins, cfg_.max_ins);
-                    scheduler_->submit(newProcess);
-                    cout << "Process '" << processName << "' created and submitted." << endl;
-                    activeScreen_ = make_unique<Screen>(newProcess);
-                    activeScreen_->run();
-                    activeScreen_.reset();
-                    clearScreen();
+                    cout << "Usage: screen -s <process_name> <process_memory_size>" << endl;
                 }
             }
-            // CHANGED: Dana - Updated "screen -r" to check for and report Memory Access Violations
+            // CHANGED: Dana - Added new handler for screen -c to create a process with custom instructions
+            else if (trimmedLine.rfind("screen -c ", 0) == 0) {
+                std::stringstream ss(trimmedLine.substr(10));
+                std::string processName;
+                int memorySize;
+                std::string instructions;
+
+                if (ss >> processName && ss >> memorySize) {
+                    size_t firstQuote = trimmedLine.find('\"');
+                    if (firstQuote != std::string::npos) {
+                        size_t lastQuote = trimmedLine.rfind('\"');
+                        if (lastQuote != std::string::npos && lastQuote > firstQuote) {
+                            instructions = trimmedLine.substr(firstQuote + 1, lastQuote - firstQuote - 1);
+                        }
+                    }
+
+                    if (instructions.empty()) {
+                        cout << "Usage: screen -c <name> <size> \"<instructions>\"" << endl;
+                        return;
+                    }
+
+                    if (isValidMemorySize(memorySize)) {
+                        auto newProcess = make_shared<Process>(scheduler_->getNextProcessId(), processName, memoryManager_.get());
+                        memoryManager_->allocateMemory(newProcess, memorySize);
+                        newProcess->loadInstructionsFromString(instructions);
+
+                        if (newProcess->getTotalInstructions() < 1 || newProcess->getTotalInstructions() > 50) {
+                            cout << "Invalid command: Must provide between 1 and 50 instructions." << endl;
+                        }
+                        else {
+                            scheduler_->submit(newProcess);
+                            cout << "Process '" << processName << "' created with " << memorySize << " bytes and custom instructions." << endl;
+                        }
+                    }
+                    else {
+                        cout << "Invalid memory allocation: Size must be a power of 2 between 64 and 65536." << endl;
+                    }
+                }
+                else {
+                    cout << "Usage: screen -c <name> <size> \"<instructions>\"" << endl;
+                }
+            }
             else if (trimmedLine.rfind("screen -r ", 0) == 0) {
                 string processName = trimmedLine.substr(10);
                 if (processName.empty()) {

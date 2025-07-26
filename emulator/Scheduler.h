@@ -52,7 +52,7 @@ private:
 
     // Core specs
     int numCpus_;
-    size_t nextCoreIndex_ = 0; 
+    size_t nextCoreIndex_ = 0;
     std::string schedulerType_;
     uint64_t quantumCycles_;
     uint64_t batchProcessFreq_;
@@ -63,7 +63,7 @@ private:
     // Core and process queues
     std::vector<std::unique_ptr<Core>> cores_;
     TSQueue<std::shared_ptr<Process>> readyQueue_;
-    std::queue<std::shared_ptr<Process>> memoryPendingQueue; 
+    // CHANGED: Dana - Removed the memoryPendingQueue as it's no longer needed
 
     // Sleeping processes
     mutable std::mutex sleepingProcessesMutex_;

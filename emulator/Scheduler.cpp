@@ -46,15 +46,10 @@ void Scheduler::stop() {
     if (processGenThread_.joinable()) processGenThread_.join();
 }
 
+// CHANGED: Dana - Simplified submit() to just add a process to the queue. Memory is now allocated before calling submit.
 void Scheduler::submit(std::shared_ptr<Process> p) {
-    if (memoryManager_.allocateMemory(p)) {
-        readyQueue_.push(p);
-        activeProcessesCount_++;
-    }
-    else {
-        memoryPendingQueue.push(p);
-        std::cout << "[MemoryManager] Process " << p->getName() << " pending due to memory.\n";
-    }
+    readyQueue_.push(p);
+    activeProcessesCount_++;
 }
 
 void Scheduler::requeueProcess(std::shared_ptr<Process> p) {
@@ -167,17 +162,7 @@ void Scheduler::schedulerLoop() {
             }
         }
 
-        // Retry memory-pending processes
-        while (!memoryPendingQueue.empty()) {
-            auto p = memoryPendingQueue.front();
-            if (memoryManager_.allocateMemory(p)) {
-                readyQueue_.push(p);
-                memoryPendingQueue.pop();
-            }
-            else {
-                break;
-            }
-        }
+        // CHANGED: Dana - Removed the logic for the memoryPendingQueue as it's no longer used.
 
         // Assign ready processes to free cores
         for (size_t i = 0; i < cores_.size(); ++i) {
@@ -224,8 +209,12 @@ void Scheduler::processGeneratorLoop() {
         if (now >= lastProcessGenTick_ + batchProcessFreq_) {
             uint64_t pid = getNextProcessId();
             std::string name = "p" + std::to_string(pid);
-            // NEWLY CHANGED: Dana - Modify to accommodate new Process constructor
             auto proc = std::make_shared<Process>(pid, name, &memoryManager_);
+
+            // CHANGED: Dana - Allocate memory with a random size for scheduler-generated processes
+            int memSize = memoryManager_.getRandomMemorySize();
+            memoryManager_.allocateMemory(proc, memSize);
+
             proc->genRandInst(minInstructions_, maxInstructions_);
             submit(proc);
             lastProcessGenTick_ = now;

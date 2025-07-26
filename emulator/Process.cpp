@@ -20,14 +20,12 @@
 static std::random_device rd;
 static std::mt19937 gen(rd());
 
-// CHANGED: Dana - Initialized new MAV-related member variables in the constructor
 Process::Process(uint64_t pid, std::string name, MemoryManager* memManager)
     : pid_(pid), name_(std::move(name)), finished_(false), isSleeping_(false), sleepTargetTick_(0), memoryManager_(memManager),
     terminationReason_(TerminationReason::RUNNING), allocatedMemoryBytes_(0), violationTime_(0) {
 }
 
 void Process::execute(const Instruction& ins, int coreId) {
-    // CHANGED: Dana - The getValue lambda now uses shared_from_this() for safer memory operations
     auto getValue = [this](const std::string& token) -> uint16_t {
         if (isdigit(token[0]) || (token[0] == '-' && token.size() > 1)) {
             try { return static_cast<uint16_t>(std::stoi(token)); }
@@ -63,7 +61,6 @@ void Process::execute(const Instruction& ins, int coreId) {
         symbolTableOffset_ += 2;
         if (ins.args.size() == 2) {
             uint16_t initialValue = clamp(getValue(ins.args[1]));
-            // CHANGED: Dana - Pass shared_from_this() to memory operations
             if (memoryManager_) memoryManager_->write(logicalAddress, initialValue, shared_from_this());
         }
     }
@@ -73,7 +70,6 @@ void Process::execute(const Instruction& ins, int coreId) {
         uint16_t b = getValue(ins.args[2]);
         if (symbolTable_.count(destVar) && memoryManager_) {
             const std::string& destAddr = symbolTable_.at(destVar);
-            // CHANGED: Dana - Pass shared_from_this() to memory operations
             memoryManager_->write(destAddr, clamp(static_cast<int64_t>(a) + static_cast<int64_t>(b)), shared_from_this());
         }
     }
@@ -83,16 +79,22 @@ void Process::execute(const Instruction& ins, int coreId) {
         uint16_t b = getValue(ins.args[2]);
         if (symbolTable_.count(destVar) && memoryManager_) {
             const std::string& destAddr = symbolTable_.at(destVar);
-            // CHANGED: Dana - Pass shared_from_this() to memory operations
             memoryManager_->write(destAddr, clamp(static_cast<int64_t>(a) - static_cast<int64_t>(b)), shared_from_this());
         }
     }
     else if (ins.opcode == 4) { // PRINT
-        std::string output = "Hello world from " + name_ + "!";
-        std::stringstream ss;
-        if (coreId >= 0) ss << "Core:" << coreId << " ";
-        ss << "\"" << output << "\"";
-        logs_.emplace_back(time(nullptr), ss.str());
+        std::string output;
+        if (!ins.args.empty()) {
+            for (const auto& arg : ins.args) {
+                if (symbolTable_.count(arg)) {
+                    output += std::to_string(getValue(arg));
+                }
+                else {
+                    output += arg;
+                }
+            }
+        }
+        logs_.emplace_back(time(nullptr), output);
     }
     else if (ins.opcode == 5 && ins.args.size() == 1) { // SLEEP
         uint8_t ticks = static_cast<uint8_t>(getValue(ins.args[0]));
@@ -121,7 +123,6 @@ void Process::execute(const Instruction& ins, int coreId) {
         const std::string& varName = ins.args[0];
         const std::string& sourceAddress = ins.args[1];
         if (memoryManager_ && symbolTable_.count(varName)) {
-            // CHANGED: Dana - Pass shared_from_this() to memory operations
             uint16_t value = memoryManager_->read(sourceAddress, shared_from_this());
             const std::string& destAddress = symbolTable_.at(varName);
             memoryManager_->write(destAddress, value, shared_from_this());
@@ -131,8 +132,54 @@ void Process::execute(const Instruction& ins, int coreId) {
         const std::string& destAddress = ins.args[0];
         uint16_t value = getValue(ins.args[1]);
         if (memoryManager_) {
-            // CHANGED: Dana - Pass shared_from_this() to memory operations
             memoryManager_->write(destAddress, value, shared_from_this());
+        }
+    }
+}
+
+// CHANGED: Dana - Added new method to parse instruction strings for screen -c
+void Process::loadInstructionsFromString(const std::string& instruction_str) {
+    insList.clear();
+    std::stringstream ss(instruction_str);
+    std::string segment;
+    std::unordered_map<std::string, uint8_t> opcodeMap = {
+        {"DECLARE", 1}, {"ADD", 2}, {"SUB", 3}, {"PRINT", 4},
+        {"SLEEP", 5}, {"FOR", 6}, {"END", 7}, {"READ", 8}, {"WRITE", 9}
+    };
+
+    while (std::getline(ss, segment, ';')) {
+        // Trim leading/trailing whitespace from the instruction segment
+        segment.erase(0, segment.find_first_not_of(" \t\n\r"));
+        segment.erase(segment.find_last_not_of(" \t\n\r") + 1);
+        if (segment.empty()) continue;
+
+        std::stringstream ins_ss(segment);
+        std::string opcode_str;
+        ins_ss >> opcode_str;
+
+        if (opcodeMap.count(opcode_str)) {
+            Instruction inst;
+            inst.opcode = opcodeMap[opcode_str];
+            std::string arg;
+
+            // Special handling for PRINT to treat the rest of the line as a single argument
+            if (inst.opcode == 4) {
+                if (std::getline(ins_ss, arg)) {
+                    // trim leading space
+                    arg.erase(0, arg.find_first_not_of(" \t"));
+                    // Handle quotes
+                    if (arg.front() == '(' && arg.back() == ')') {
+                        arg = arg.substr(1, arg.length() - 2);
+                    }
+                    inst.args.push_back(arg);
+                }
+            }
+            else {
+                while (ins_ss >> arg) {
+                    inst.args.push_back(arg);
+                }
+            }
+            insList.push_back(inst);
         }
     }
 }
@@ -263,14 +310,12 @@ bool Process::runOneInstruction(int coreId) {
     }
 
     if (insCount_ >= insList.size()) {
-        // CHANGED: Dana - Set termination reason to normal when instructions complete
         setTerminationReason(TerminationReason::FINISHED_NORMALLY);
         return false;
     }
 
     execute(insList[insCount_], coreId);
 
-    // CHANGED: Dana - Added check to see if execute() caused a termination (e.g., MAV)
     if (isFinished()) return false;
 
     if (!isSleeping_) {
@@ -278,7 +323,6 @@ bool Process::runOneInstruction(int coreId) {
     }
 
     if (insCount_ >= insList.size()) {
-        // CHANGED: Dana - Set termination reason to normal when instructions complete
         setTerminationReason(TerminationReason::FINISHED_NORMALLY);
     }
 
@@ -310,7 +354,6 @@ std::string Process::smi() const {
         }
     }
 
-    // CHANGED: Dana - Updated smi() to show specific termination status
     if (terminationReason_ == TerminationReason::MEMORY_VIOLATION) {
         ss << "Status: Terminated (Memory Access Violation)\n";
     }
@@ -338,12 +381,10 @@ std::string Process::smi() const {
             uint16_t value = 0;
             if (memoryManager_ && terminationReason_ != TerminationReason::MEMORY_VIOLATION) {
                 try {
-                    // CHANGED: Dana - Use shared_from_this() in const method via const_cast for safety
                     Process* nonConstThis = const_cast<Process*>(this);
                     value = memoryManager_->read(address, nonConstThis->shared_from_this());
                 }
                 catch (const std::runtime_error&) {
-                    // In case a read is attempted on a faulty process
                 }
             }
             ss << "  " << varName << " = " << value << " @ " << address << "\n";

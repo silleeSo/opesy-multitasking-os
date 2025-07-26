@@ -1,6 +1,3 @@
-// ============================
-// MemoryManager.h (UPDATED)
-// ============================
 #pragma once
 #include "MainMemory.h"
 #include <unordered_map>
@@ -16,7 +13,7 @@ class MemoryManager {
 public:
     MemoryManager(MainMemory& mem, int minMemProc, int maxMemProc, int frameSz);
 
-    bool allocateMemory(std::shared_ptr<Process> process);
+    bool allocateMemory(std::shared_ptr<Process> process, int requestedBytes);
     std::string allocateVariable(std::shared_ptr<Process> process, const std::string& varName);
 
     bool isAddressInMemory(const std::string& addr);
@@ -33,6 +30,9 @@ public:
 
     void deallocate(uint64_t  pid);
 
+    // CHANGED: Dana - Made getRandomMemorySize public so the Scheduler can use it
+    int getRandomMemorySize() const;
+
 private:
     MainMemory& memory;
     int minMemPerProc;
@@ -43,7 +43,6 @@ private:
     int nextPageId = 0;
 
     std::pair<int, int> translate(std::string logicalAddr, std::shared_ptr<Process> p);
-    int getRandomMemorySize() const;
 
     std::unordered_map<std::string, std::vector<uint16_t>> backingStore_;
 };

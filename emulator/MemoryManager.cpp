@@ -12,9 +12,8 @@ MemoryManager::MemoryManager(MainMemory& mem, int minMemProc, int maxMemProc, in
     pagedInCount(0), pagedOutCount(0), nextPageId(0) {
 }
 
-bool MemoryManager::allocateMemory(std::shared_ptr<Process> process) {
-    int requestedBytes = getRandomMemorySize();
-    // CHANGED: Dana - Store the allocated memory size directly in the process object
+// CHANGED: Dana - allocateMemory now uses the user-specified size instead of a random one.
+bool MemoryManager::allocateMemory(std::shared_ptr<Process> process, int requestedBytes) {
     process->setAllocatedMemory(requestedBytes);
 
     int pages = (requestedBytes + frameSize - 1) / frameSize;
@@ -32,8 +31,11 @@ int MemoryManager::getRandomMemorySize() const {
     return dist(gen);
 }
 
+// CHANGED: Dana - Corrected the symbol table limit check to be a fixed 64 bytes.
 std::string MemoryManager::allocateVariable(std::shared_ptr<Process> process, const std::string& varName) {
-    if (process->getSymbolTable().size() * 2 >= maxMemPerProc) return "";
+    if (process->getSymbolTable().size() * 2 >= 64) { // Symbol table is fixed at 64 bytes (32 variables)
+        return "";
+    }
 
     uint16_t base = static_cast<uint16_t>(process->getPid()) << 8;
     uint16_t offset = static_cast<uint16_t>(process->getSymbolTable().size() * 2);
@@ -44,6 +46,11 @@ std::string MemoryManager::allocateVariable(std::shared_ptr<Process> process, co
     process->getSymbolTable()[varName] = address;
     write(address, 0, process);
     return address;
+}
+
+// CHANGED: Dana - Added the missing function definition for isAddressInMemory
+bool MemoryManager::isAddressInMemory(const std::string& addr) {
+    return memory.addressExists(addr);
 }
 
 void MemoryManager::deallocate(uint64_t pid) {
@@ -71,7 +78,6 @@ void MemoryManager::write(const std::string& addr, uint16_t value, std::shared_p
     memory.writeMemory(ss.str(), value);
 }
 
-// CHANGED: Dana - Added comprehensive Memory Access Violation (MAV) check to translate()
 std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::shared_ptr<Process> p) {
     int addr = 0;
     try {
@@ -82,7 +88,6 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
         throw std::runtime_error("Invalid memory address format.");
     }
 
-    // This is the core Memory Access Violation check.
     if (addr < 0 || addr >= p->getAllocatedMemory()) {
         p->setTerminationReason(Process::TerminationReason::MEMORY_VIOLATION, logicalAddr);
         throw std::runtime_error("Memory Access Violation");
