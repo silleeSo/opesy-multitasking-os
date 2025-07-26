@@ -12,6 +12,7 @@ MemoryManager::MemoryManager(MainMemory& mem, int minMemProc, int maxMemProc, in
     pagedInCount(0), pagedOutCount(0), nextPageId(0) {
 }
 
+// CHANGED: Dana - Updated allocateMemory to create zero-filled pages in the backing store by default.
 bool MemoryManager::allocateMemory(std::shared_ptr<Process> process, int requestedBytes) {
     process->setAllocatedMemory(requestedBytes);
 
@@ -19,6 +20,15 @@ bool MemoryManager::allocateMemory(std::shared_ptr<Process> process, int request
     for (int i = 0; i < pages; ++i) {
         process->getPageTable()[i] = -1;
         process->getValidBits()[i] = false;
+
+        // Proactively create zero-filled pages in the backing store
+        std::stringstream ss;
+        ss << "p" << process->getPid() << "_page" << i;
+        std::string pageId = ss.str();
+
+        // Create a page of memory filled with zeros
+        std::vector<uint16_t> zeroPage(frameSize, 0);
+        backingStore_[pageId] = zeroPage;
     }
     return true;
 }
@@ -101,7 +111,6 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
     return { frameIndex, offset };
 }
 
-
 void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
     std::stringstream ss;
     ss << "p" << p->getPid() << "_page" << pageNum;
@@ -133,6 +142,15 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
     }
 }
 
+void MemoryManager::preloadPages(std::shared_ptr<Process> process, int startPage, int numPages) {
+    for (int i = 0; i < numPages; ++i) {
+        int pageNum = startPage + i;
+        if (process->getValidBits().count(pageNum) == 0 || !process->getValidBits().at(pageNum)) {
+            handlePageFault(process, pageNum);
+        }
+    }
+}
+
 void MemoryManager::evictPage(int index) {
     std::string pageId = memory.getPageAtFrame(index);
     if (pageId.empty()) return;
@@ -153,21 +171,6 @@ int MemoryManager::getVictimFrame_FIFO() {
     int victimFrame = frame_fifo_queue_.front();
     frame_fifo_queue_.pop();
     return victimFrame;
-}
-
-// CHANGED: Dana - Implemented the page preloading function to bring a range of a process's pages into memory before execution.
-void MemoryManager::preloadPages(std::shared_ptr<Process> p, int startPage, int numPages) {
-    for (int i = 0; i < numPages; ++i) {
-        int pageNum = startPage + i;
-        if (p->getValidBits().count(pageNum) == 0 || !p->getValidBits().at(pageNum)) {
-            try {
-                handlePageFault(p, pageNum);
-            }
-            catch (const std::runtime_error& e) {
-                std::cerr << "Warning: Preloading page " << pageNum << " for PID " << p->getPid() << " failed: " << e.what() << std::endl;
-            }
-        }
-    }
 }
 
 void MemoryManager::writeToBackingStore(const std::string& pageId) {

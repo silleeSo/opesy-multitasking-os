@@ -127,7 +127,7 @@ size_t Scheduler::getCoresAvailable() const {
     return numCpus_ - getCoresUsed();
 }
 
-// CHANGED: Dana - Implemented getActiveCpuTicks to sum up the ticks from all cores for the vmstat command.
+
 uint64_t Scheduler::getActiveCpuTicks() const {
     uint64_t totalActiveTicks = 0;
     for (const auto& coreTicks : coreTicksUsed_) {
@@ -150,6 +150,7 @@ Core* Scheduler::getCore(int index) const {
     return nullptr;
 }
 
+// CHANGED: Dana - Refactored scheduler loop to allocate memory on first dispatch.
 void Scheduler::schedulerLoop() {
     while (running_.load()) {
         {
@@ -175,14 +176,21 @@ void Scheduler::schedulerLoop() {
             if (!core->isBusy()) {
                 std::shared_ptr<Process> p;
                 if (readyQueue_.try_pop(p)) {
+                    // Allocate memory on first dispatch instead of at submission.
                     if (!p->hasBeenScheduled()) {
-                        int pagesToLoad = p->getSymbolTablePages(frameSize_);
-                        memoryManager_.preloadPages(p, 0, pagesToLoad);
+                        int memToAlloc = p->getAllocatedMemory();
+                        // If memory is 0, it's a scheduler-generated process that needs a random size.
+                        if (memToAlloc == 0) {
+                            memToAlloc = memoryManager_.getRandomMemorySize();
+                        }
+                        // Now, allocate the memory and create pages in the backing store.
+                        memoryManager_.allocateMemory(p, memToAlloc);
                         p->setHasBeenScheduled(true);
                     }
 
                     uint64_t quantum = (schedulerType_ == "rr") ? quantumCycles_ : UINT64_MAX;
                     if (!core->tryAssign(p, quantum)) {
+                        // If assignment fails, reset the flag so we try again next time.
                         p->setHasBeenScheduled(false);
                         requeueProcess(p);
                     }
@@ -211,6 +219,7 @@ void Scheduler::schedulerLoop() {
     }
 }
 
+// CHANGED: Dana - Removed memory allocation from process generation loop.
 void Scheduler::processGeneratorLoop() {
     while (processGenEnabled_.load()) {
         uint64_t now = globalCpuTicks.load();
@@ -219,9 +228,7 @@ void Scheduler::processGeneratorLoop() {
             std::string name = "p" + std::to_string(pid);
             auto proc = std::make_shared<Process>(pid, name, &memoryManager_);
 
-            int memSize = memoryManager_.getRandomMemorySize();
-            memoryManager_.allocateMemory(proc, memSize);
-
+            // Memory is no longer allocated here. The scheduler will handle it.
             proc->genRandInst(minInstructions_, maxInstructions_);
             submit(proc);
             lastProcessGenTick_ = now;

@@ -101,25 +101,23 @@ private:
         cout << "CPU tick thread started." << endl;
     }
 
-    bool isValidMemorySize(int size) {
-        bool isPowerOfTwo = (size > 0) && ((size & (size - 1)) == 0);
-        bool inRange = (size >= 64 && size <= 65536);
-        return isPowerOfTwo && inRange;
+    bool isPowerOfTwo(int n) {
+        return (n > 0) && ((n & (n - 1)) == 0);
     }
 
-    // CHANGED: Dana - Added a helper function to implement the 'process-smi' command, displaying a formatted summary of CPU and memory usage.
+    bool isValidMemorySize(int size) {
+        bool inRange = (size >= 64 && size <= 65536);
+        return isPowerOfTwo(size) && inRange;
+    }
+
     void handleProcessSmiCommand() {
         cout << "+--------------------------------------------------+" << endl;
         cout << "| PROCESS-SMI V01.00   Driver Version: 01.00       |" << endl;
         cout << "+--------------------------------------------------+" << endl;
 
-        // CPU Utilization
         double cpuUtil = scheduler_->getCpuUtilization();
-        stringstream cpuUtilSs;
-        cpuUtilSs << fixed << setprecision(2) << cpuUtil << "%";
-        cout << "| CPU-Util: " << left << setw(33) << cpuUtilSs.str() << "|" << endl;
+        cout << "| CPU-Util: " << left << setw(33) << (to_string(cpuUtil) + "%") << "|" << endl;
 
-        // Memory Utilization
         int totalMemBytes = mainMemory_->getTotalMemoryBytes();
         int usedFrames = mainMemory_->getUsedFrames();
         int frameSize = mainMemory_->getFrameSize();
@@ -128,13 +126,9 @@ private:
 
         string memUsage = to_string(usedMemBytes) + "B / " + to_string(totalMemBytes) + "B";
         cout << "| Memory Usage: " << left << setw(29) << memUsage << "|" << endl;
-
-        stringstream memUtilSs;
-        memUtilSs << fixed << setprecision(2) << memUtil << "%";
-        cout << "| Memory Util:  " << left << setw(28) << memUtilSs.str() << "|" << endl;
+        cout << "| Memory Util:  " << left << setw(28) << (to_string(memUtil) + "%") << "|" << endl;
         cout << "+--------------------------------------------------+" << endl;
 
-        // Running Processes
         cout << "Running processes and memory usage:" << endl;
         auto runningProcs = scheduler_->getRunningProcesses();
         if (runningProcs.empty()) {
@@ -148,9 +142,7 @@ private:
         cout << "+--------------------------------------------------+" << endl;
     }
 
-    // CHANGED: Dana - Added a helper function to implement the 'vmstat' command, providing a detailed report on memory, CPU ticks, and paging statistics.
     void handleVmstatCommand() {
-        // Memory Stats
         int totalMemBytes = mainMemory_->getTotalMemoryBytes();
         int usedFrames = mainMemory_->getUsedFrames();
         int frameSize = mainMemory_->getFrameSize();
@@ -161,7 +153,6 @@ private:
         cout << right << setw(12) << usedMemBytes << "  Used memory" << endl;
         cout << right << setw(12) << freeMemBytes << "  Free memory" << endl;
 
-        // CPU Ticks
         uint64_t totalTicks = globalCpuTicks.load();
         uint64_t activeTicks = scheduler_->getActiveCpuTicks();
         uint64_t idleTicks = totalTicks - activeTicks;
@@ -170,7 +161,6 @@ private:
         cout << right << setw(12) << activeTicks << "  Active cpu ticks" << endl;
         cout << right << setw(12) << totalTicks << "  Total cpu ticks" << endl;
 
-        // Paging Stats
         int pagedIn = memoryManager_->getPagedInCount();
         int pagedOut = memoryManager_->getPagedOutCount();
 
@@ -190,7 +180,6 @@ private:
         if (trimmedLine == "help") {
             cout << "\nAvailable commands:" << endl;
             cout << "- initialize: Initialize the specifications of the OS (must be called first)" << endl;
-            // CHANGED: Dana - Updated the help command output to include descriptions for the new process-smi and vmstat commands.
             cout << "- process-smi: Display high-level CPU and memory utilization" << endl;
             cout << "- vmstat: Display detailed virtual memory statistics" << endl;
             cout << "- screen -ls: Show active and finished processes" << endl;
@@ -207,7 +196,20 @@ private:
         else if (trimmedLine == "initialize" && !initialized_) {
             if (loadConfigFile("config.txt")) {
                 initialized_ = true;
-                cout << "\nLoaded configuration from config.txt\n";
+                cout << "\nLoaded configuration from config.txt:" << endl;
+                cout << "  num-cpu: " << cfg_.num_cpu << endl;
+                cout << "  scheduler: " << cfg_.scheduler << endl;
+                cout << "  quantum-cycles: " << cfg_.quantum_cycles << endl;
+                cout << "  batch-process-freq: " << cfg_.batch_process_freq << endl;
+                cout << "  min-ins: " << cfg_.min_ins << endl;
+                cout << "  max-ins: " << cfg_.max_ins << endl;
+                cout << "  delay-per-exec: " << cfg_.delay_per_exec << endl;
+                cout << "  max-overall-mem: " << cfg_.max_overall_mem << endl;
+                cout << "  mem-per-frame: " << cfg_.mem_per_frame << endl;
+                cout << "  min-mem-per-proc: " << cfg_.min_mem_per_proc << endl;
+                cout << "  max-mem-per-proc: " << cfg_.max_mem_per_proc << endl;
+                cout << endl;
+
                 mainMemory_ = std::make_unique<MainMemory>(cfg_.max_overall_mem, cfg_.mem_per_frame);
                 memoryManager_ = std::make_unique<MemoryManager>(*mainMemory_, cfg_.min_mem_per_proc, cfg_.max_mem_per_proc, cfg_.mem_per_frame);
                 scheduler_ = std::make_unique<Scheduler>(cfg_.num_cpu, cfg_.scheduler, cfg_.quantum_cycles, cfg_.batch_process_freq, cfg_.min_ins, cfg_.max_ins, cfg_.delay_per_exec, *memoryManager_, cfg_.mem_per_frame);
@@ -223,6 +225,7 @@ private:
             cout << "Error: Specifications have not yet been initialized! Type 'initialize' first." << endl;
         }
         else {
+            // CHANGED: Dana - Refactored screen -s to set memory size but not allocate it.
             if (trimmedLine.rfind("screen -s ", 0) == 0) {
                 std::stringstream ss(trimmedLine.substr(10));
                 std::string processName;
@@ -231,10 +234,10 @@ private:
                 if (ss >> processName && ss >> memorySize) {
                     if (isValidMemorySize(memorySize)) {
                         auto newProcess = make_shared<Process>(scheduler_->getNextProcessId(), processName, memoryManager_.get());
-                        memoryManager_->allocateMemory(newProcess, memorySize);
+                        newProcess->setAllocatedMemory(memorySize);
                         newProcess->genRandInst(cfg_.min_ins, cfg_.max_ins);
                         scheduler_->submit(newProcess);
-                        cout << "Process '" << processName << "' created with " << memorySize << " bytes of memory." << endl;
+                        cout << "Process '" << processName << "' created and submitted." << endl;
 
                         activeScreen_ = make_unique<Screen>(newProcess);
                         activeScreen_->run();
@@ -249,6 +252,7 @@ private:
                     cout << "Usage: screen -s <process_name> <process_memory_size>" << endl;
                 }
             }
+            // CHANGED: Dana - Refactored screen -c to set memory size but not allocate it.
             else if (trimmedLine.rfind("screen -c ", 0) == 0) {
                 std::stringstream ss(trimmedLine.substr(10));
                 std::string processName;
@@ -271,7 +275,7 @@ private:
 
                     if (isValidMemorySize(memorySize)) {
                         auto newProcess = make_shared<Process>(scheduler_->getNextProcessId(), processName, memoryManager_.get());
-                        memoryManager_->allocateMemory(newProcess, memorySize);
+                        newProcess->setAllocatedMemory(memorySize);
                         newProcess->loadInstructionsFromString(instructions);
 
                         if (newProcess->getTotalInstructions() < 1 || newProcess->getTotalInstructions() > 50) {
@@ -279,7 +283,7 @@ private:
                         }
                         else {
                             scheduler_->submit(newProcess);
-                            cout << "Process '" << processName << "' created with " << memorySize << " bytes and custom instructions." << endl;
+                            cout << "Process '" << processName << "' created and submitted." << endl;
                         }
                     }
                     else {
@@ -411,7 +415,6 @@ private:
             else if (trimmedLine == "report-util") {
                 generateReport();
             }
-            // CHANGED: Dana - Integrated the new process-smi and vmstat commands into the main command handler.
             else if (trimmedLine == "process-smi") {
                 handleProcessSmiCommand();
             }
@@ -497,6 +500,7 @@ private:
         cout << "Report written to csopesy-log.txt\n";
     }
 
+    // CHANGED: Dana - Added power-of-2 validation for memory parameters from config file.
     bool loadConfigFile(const string& path) {
         ifstream in(path);
         if (!in) { cout << "config.txt not found!\n"; return false; }
@@ -522,6 +526,13 @@ private:
             cout << "Malformed config.txt – missing field or unexpected error\n";
             return false;
         }
+
+        if (!isPowerOfTwo(cfg_.max_overall_mem) || !isPowerOfTwo(cfg_.mem_per_frame) ||
+            !isPowerOfTwo(cfg_.min_mem_per_proc) || !isPowerOfTwo(cfg_.max_mem_per_proc)) {
+            cout << "Configuration error: All memory sizes (max-overall-mem, mem-per-frame, min-mem-per-proc, max-mem-per-proc) must be a power of 2." << endl;
+            return false;
+        }
+
         return true;
     }
 
