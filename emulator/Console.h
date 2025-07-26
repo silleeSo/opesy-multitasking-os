@@ -221,7 +221,8 @@ private:
                     else {
                         // Create a new process and submit to scheduler
                         // PID will be assigned by scheduler's internal counter or a new mechanism
-                        auto newProcess = make_shared<Process>(static_cast<int>(scheduler_->getNextProcessId()), processName);
+                        // NEWLY CHANGED: Dana - Modify to accommodate new Process constructor
+                        auto newProcess = make_shared<Process>(static_cast<int>(scheduler_->getNextProcessId()), processName, memoryManager_.get());
                         newProcess->genRandInst(cfg_.min_ins, cfg_.max_ins); // Generate instructions
                         scheduler_->submit(newProcess);
                         cout << "Process '" << processName << "' (PID: " << newProcess->getPid() << ") created and submitted." << endl;
