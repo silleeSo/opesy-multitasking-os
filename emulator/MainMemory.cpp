@@ -74,7 +74,7 @@ const std::vector<bool>& MainMemory::getValidBits() const {
 void MainMemory::freeFramesByPagePrefix(const std::string& prefix) {
     for (size_t i = 0; i < frameTable.size(); ++i) {
         if (validBits[i] && frameTable[i].find(prefix) == 0) {
-            clearFrame(static_cast<int>(i)); // if clearFrame expects int
+            clearFrame(static_cast<int>(i));
         }
     }
 }
@@ -88,7 +88,7 @@ std::vector<uint16_t> MainMemory::dumpPageFromFrame(int frameIndex, const std::s
         ss << "0x" << std::hex << std::uppercase << (base + i);
         std::string addr = ss.str();
 
-        data.push_back(readMemory(addr));  // Push 0 if not exists
+        data.push_back(readMemory(addr));
     }
 
     return data;
@@ -104,4 +104,13 @@ void MainMemory::loadPageToFrame(int frameIndex, const std::vector<uint16_t>& da
     }
 }
 
-
+// CHANGED: Dana - Implemented getUsedFrames to calculate the number of occupied frames, supporting vmstat/process-smi.
+int MainMemory::getUsedFrames() const {
+    int used = 0;
+    for (bool bit : validBits) {
+        if (bit) {
+            used++;
+        }
+    }
+    return used;
+}

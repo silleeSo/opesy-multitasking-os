@@ -1,4 +1,3 @@
-// Scheduler.cpp — Final Full Spec-Aligned Version
 #include "Scheduler.h"
 #include "Core.h"
 #include <algorithm>
@@ -11,12 +10,12 @@ static std::mt19937 scheduler_gen(scheduler_rd());
 
 Scheduler::Scheduler(int num_cpu, const std::string& scheduler_type, uint64_t quantum_cycles,
     uint64_t batch_process_freq, uint64_t min_ins, uint64_t max_ins, uint64_t delay_per_exec,
-    MemoryManager& memoryManager)
+    MemoryManager& memoryManager, int frameSize)
     : numCpus_(num_cpu), schedulerType_(scheduler_type), quantumCycles_(quantum_cycles),
     batchProcessFreq_(batch_process_freq), minInstructions_(min_ins), maxInstructions_(max_ins),
     delayPerExec_(delay_per_exec), running_(false), processGenEnabled_(false),
     lastProcessGenTick_(0), nextPid_(1), activeProcessesCount_(0),
-    schedulerStartTime_(0), memoryManager_(memoryManager),
+    schedulerStartTime_(0), memoryManager_(memoryManager), frameSize_(frameSize),
     lastQuantumSnapshot_(0), quantumIndex_(0) {
 
     cores_.reserve(numCpus_);
@@ -46,7 +45,6 @@ void Scheduler::stop() {
     if (processGenThread_.joinable()) processGenThread_.join();
 }
 
-// CHANGED: Dana - Simplified submit() to just add a process to the queue. Memory is now allocated before calling submit.
 void Scheduler::submit(std::shared_ptr<Process> p) {
     readyQueue_.push(p);
     activeProcessesCount_++;
@@ -129,6 +127,15 @@ size_t Scheduler::getCoresAvailable() const {
     return numCpus_ - getCoresUsed();
 }
 
+// CHANGED: Dana - Implemented getActiveCpuTicks to sum up the ticks from all cores for the vmstat command.
+uint64_t Scheduler::getActiveCpuTicks() const {
+    uint64_t totalActiveTicks = 0;
+    for (const auto& coreTicks : coreTicksUsed_) {
+        totalActiveTicks += coreTicks->load();
+    }
+    return totalActiveTicks;
+}
+
 
 void Scheduler::updateCoreUtilization(int coreId, uint64_t ticksUsed) {
     if (coreId >= 0 && coreId < numCpus_) {
@@ -145,7 +152,6 @@ Core* Scheduler::getCore(int index) const {
 
 void Scheduler::schedulerLoop() {
     while (running_.load()) {
-        // Wake sleeping processes
         {
             std::lock_guard<std::mutex> lock(sleepingProcessesMutex_);
             auto now = globalCpuTicks.load();
@@ -162,9 +168,6 @@ void Scheduler::schedulerLoop() {
             }
         }
 
-        // CHANGED: Dana - Removed the logic for the memoryPendingQueue as it's no longer used.
-
-        // Assign ready processes to free cores
         for (size_t i = 0; i < cores_.size(); ++i) {
             size_t index = (nextCoreIndex_ + i) % cores_.size();
             auto& core = cores_[index];
@@ -172,8 +175,15 @@ void Scheduler::schedulerLoop() {
             if (!core->isBusy()) {
                 std::shared_ptr<Process> p;
                 if (readyQueue_.try_pop(p)) {
+                    if (!p->hasBeenScheduled()) {
+                        int pagesToLoad = p->getSymbolTablePages(frameSize_);
+                        memoryManager_.preloadPages(p, 0, pagesToLoad);
+                        p->setHasBeenScheduled(true);
+                    }
+
                     uint64_t quantum = (schedulerType_ == "rr") ? quantumCycles_ : UINT64_MAX;
                     if (!core->tryAssign(p, quantum)) {
+                        p->setHasBeenScheduled(false);
                         requeueProcess(p);
                     }
                     else {
@@ -183,7 +193,6 @@ void Scheduler::schedulerLoop() {
             }
         }
 
-        // Reap finished processes
         {
             std::lock_guard<std::mutex> lock(finishedProcessesMutex_);
             for (auto& core : cores_) {
@@ -192,7 +201,6 @@ void Scheduler::schedulerLoop() {
             }
         }
 
-        // Dump memory snapshot every quantum
         uint64_t now = globalCpuTicks.load();
         if ((now - lastQuantumSnapshot_) >= quantumCycles_) {
             memoryManager_.logMemorySnapshot();
@@ -211,7 +219,6 @@ void Scheduler::processGeneratorLoop() {
             std::string name = "p" + std::to_string(pid);
             auto proc = std::make_shared<Process>(pid, name, &memoryManager_);
 
-            // CHANGED: Dana - Allocate memory with a random size for scheduler-generated processes
             int memSize = memoryManager_.getRandomMemorySize();
             memoryManager_.allocateMemory(proc, memSize);
 

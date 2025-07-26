@@ -93,7 +93,6 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
     int pageNum = addr / frameSize;
     int offset = addr % frameSize;
 
-    // A page fault occurs if the page is not in the process's valid bit map, or if it is marked as not valid (not in memory).
     if (p->getValidBits().count(pageNum) == 0 || !p->getValidBits().at(pageNum)) {
         handlePageFault(p, pageNum);
     }
@@ -103,7 +102,6 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
 }
 
 
-// CHANGED: Dana - Implemented FIFO page replacement logic in handlePageFault
 void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
     std::stringstream ss;
     ss << "p" << p->getPid() << "_page" << pageNum;
@@ -111,11 +109,10 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
 
     int frameIndex = memory.getFreeFrameIndex();
     if (frameIndex == -1) {
-        // If no free frames, get a victim using FIFO
         int victimFrame = getVictimFrame_FIFO();
         if (victimFrame != -1) {
             evictPage(victimFrame);
-            frameIndex = victimFrame; // The newly freed frame is our target
+            frameIndex = victimFrame;
         }
     }
 
@@ -130,7 +127,6 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
         p->getPageTable()[pageNum] = frameIndex;
         p->getValidBits()[pageNum] = true;
 
-        // Add the newly used frame to the back of the FIFO queue
         frame_fifo_queue_.push(frameIndex);
 
         ++pagedInCount;
@@ -150,14 +146,28 @@ void MemoryManager::evictPage(int index) {
     ++pagedOutCount;
 }
 
-// CHANGED: Dana - Added helper function to get victim frame based on FIFO
 int MemoryManager::getVictimFrame_FIFO() {
     if (frame_fifo_queue_.empty()) {
-        return -1; // Should not happen if memory is full and all frames are tracked
+        return -1;
     }
     int victimFrame = frame_fifo_queue_.front();
     frame_fifo_queue_.pop();
     return victimFrame;
+}
+
+// CHANGED: Dana - Implemented the page preloading function to bring a range of a process's pages into memory before execution.
+void MemoryManager::preloadPages(std::shared_ptr<Process> p, int startPage, int numPages) {
+    for (int i = 0; i < numPages; ++i) {
+        int pageNum = startPage + i;
+        if (p->getValidBits().count(pageNum) == 0 || !p->getValidBits().at(pageNum)) {
+            try {
+                handlePageFault(p, pageNum);
+            }
+            catch (const std::runtime_error& e) {
+                std::cerr << "Warning: Preloading page " << pageNum << " for PID " << p->getPid() << " failed: " << e.what() << std::endl;
+            }
+        }
+    }
 }
 
 void MemoryManager::writeToBackingStore(const std::string& pageId) {

@@ -101,14 +101,83 @@ private:
         cout << "CPU tick thread started." << endl;
     }
 
-    // CHANGED: Dana - Added a helper function to validate memory size input
     bool isValidMemorySize(int size) {
-        // Check if it's a power of 2
         bool isPowerOfTwo = (size > 0) && ((size & (size - 1)) == 0);
-        // Check if it's within the valid range
         bool inRange = (size >= 64 && size <= 65536);
         return isPowerOfTwo && inRange;
     }
+
+    // CHANGED: Dana - Added a helper function to implement the 'process-smi' command, displaying a formatted summary of CPU and memory usage.
+    void handleProcessSmiCommand() {
+        cout << "+--------------------------------------------------+" << endl;
+        cout << "| PROCESS-SMI V01.00   Driver Version: 01.00       |" << endl;
+        cout << "+--------------------------------------------------+" << endl;
+
+        // CPU Utilization
+        double cpuUtil = scheduler_->getCpuUtilization();
+        stringstream cpuUtilSs;
+        cpuUtilSs << fixed << setprecision(2) << cpuUtil << "%";
+        cout << "| CPU-Util: " << left << setw(33) << cpuUtilSs.str() << "|" << endl;
+
+        // Memory Utilization
+        int totalMemBytes = mainMemory_->getTotalMemoryBytes();
+        int usedFrames = mainMemory_->getUsedFrames();
+        int frameSize = mainMemory_->getFrameSize();
+        int usedMemBytes = usedFrames * frameSize;
+        double memUtil = (totalMemBytes > 0) ? (static_cast<double>(usedMemBytes) / totalMemBytes) * 100.0 : 0.0;
+
+        string memUsage = to_string(usedMemBytes) + "B / " + to_string(totalMemBytes) + "B";
+        cout << "| Memory Usage: " << left << setw(29) << memUsage << "|" << endl;
+
+        stringstream memUtilSs;
+        memUtilSs << fixed << setprecision(2) << memUtil << "%";
+        cout << "| Memory Util:  " << left << setw(28) << memUtilSs.str() << "|" << endl;
+        cout << "+--------------------------------------------------+" << endl;
+
+        // Running Processes
+        cout << "Running processes and memory usage:" << endl;
+        auto runningProcs = scheduler_->getRunningProcesses();
+        if (runningProcs.empty()) {
+            cout << "  No processes currently running." << endl;
+        }
+        else {
+            for (const auto& p : runningProcs) {
+                cout << "  " << left << setw(15) << p->getName() << p->getAllocatedMemory() << "B" << endl;
+            }
+        }
+        cout << "+--------------------------------------------------+" << endl;
+    }
+
+    // CHANGED: Dana - Added a helper function to implement the 'vmstat' command, providing a detailed report on memory, CPU ticks, and paging statistics.
+    void handleVmstatCommand() {
+        // Memory Stats
+        int totalMemBytes = mainMemory_->getTotalMemoryBytes();
+        int usedFrames = mainMemory_->getUsedFrames();
+        int frameSize = mainMemory_->getFrameSize();
+        int usedMemBytes = usedFrames * frameSize;
+        int freeMemBytes = totalMemBytes - usedMemBytes;
+
+        cout << right << setw(12) << totalMemBytes << "  Total memory" << endl;
+        cout << right << setw(12) << usedMemBytes << "  Used memory" << endl;
+        cout << right << setw(12) << freeMemBytes << "  Free memory" << endl;
+
+        // CPU Ticks
+        uint64_t totalTicks = globalCpuTicks.load();
+        uint64_t activeTicks = scheduler_->getActiveCpuTicks();
+        uint64_t idleTicks = totalTicks - activeTicks;
+
+        cout << right << setw(12) << idleTicks << "  Idle cpu ticks" << endl;
+        cout << right << setw(12) << activeTicks << "  Active cpu ticks" << endl;
+        cout << right << setw(12) << totalTicks << "  Total cpu ticks" << endl;
+
+        // Paging Stats
+        int pagedIn = memoryManager_->getPagedInCount();
+        int pagedOut = memoryManager_->getPagedOutCount();
+
+        cout << right << setw(12) << pagedIn << "  Num paged in" << endl;
+        cout << right << setw(12) << pagedOut << "  Num paged out" << endl;
+    }
+
 
     void handleCommand(const string& line) {
         clearScreen();
@@ -121,6 +190,9 @@ private:
         if (trimmedLine == "help") {
             cout << "\nAvailable commands:" << endl;
             cout << "- initialize: Initialize the specifications of the OS (must be called first)" << endl;
+            // CHANGED: Dana - Updated the help command output to include descriptions for the new process-smi and vmstat commands.
+            cout << "- process-smi: Display high-level CPU and memory utilization" << endl;
+            cout << "- vmstat: Display detailed virtual memory statistics" << endl;
             cout << "- screen -ls: Show active and finished processes" << endl;
             cout << "- screen -s <name> <size>: Create a new process with random instructions" << endl;
             cout << "- screen -c <name> <size> \"<instr>\": Create a new process with custom instructions" << endl;
@@ -138,7 +210,7 @@ private:
                 cout << "\nLoaded configuration from config.txt\n";
                 mainMemory_ = std::make_unique<MainMemory>(cfg_.max_overall_mem, cfg_.mem_per_frame);
                 memoryManager_ = std::make_unique<MemoryManager>(*mainMemory_, cfg_.min_mem_per_proc, cfg_.max_mem_per_proc, cfg_.mem_per_frame);
-                scheduler_ = std::make_unique<Scheduler>(cfg_.num_cpu, cfg_.scheduler, cfg_.quantum_cycles, cfg_.batch_process_freq, cfg_.min_ins, cfg_.max_ins, cfg_.delay_per_exec, *memoryManager_);
+                scheduler_ = std::make_unique<Scheduler>(cfg_.num_cpu, cfg_.scheduler, cfg_.quantum_cycles, cfg_.batch_process_freq, cfg_.min_ins, cfg_.max_ins, cfg_.delay_per_exec, *memoryManager_, cfg_.mem_per_frame);
                 scheduler_->start();
                 startCpuTickThread();
             }
@@ -150,8 +222,7 @@ private:
         else if (!initialized_) {
             cout << "Error: Specifications have not yet been initialized! Type 'initialize' first." << endl;
         }
-        else { // Commands requiring initialization
-            // CHANGED: Dana - Updated screen -s to parse memory size and validate it
+        else {
             if (trimmedLine.rfind("screen -s ", 0) == 0) {
                 std::stringstream ss(trimmedLine.substr(10));
                 std::string processName;
@@ -178,7 +249,6 @@ private:
                     cout << "Usage: screen -s <process_name> <process_memory_size>" << endl;
                 }
             }
-            // CHANGED: Dana - Added new handler for screen -c to create a process with custom instructions
             else if (trimmedLine.rfind("screen -c ", 0) == 0) {
                 std::stringstream ss(trimmedLine.substr(10));
                 std::string processName;
@@ -340,6 +410,13 @@ private:
             }
             else if (trimmedLine == "report-util") {
                 generateReport();
+            }
+            // CHANGED: Dana - Integrated the new process-smi and vmstat commands into the main command handler.
+            else if (trimmedLine == "process-smi") {
+                handleProcessSmiCommand();
+            }
+            else if (trimmedLine == "vmstat") {
+                handleVmstatCommand();
             }
             else {
                 cout << "[" << getCurrentTimestamp() << "] Unknown command: " << trimmedLine << '\n';

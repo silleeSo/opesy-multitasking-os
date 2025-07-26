@@ -6,7 +6,7 @@
 #include <memory>
 #include <vector>
 #include <utility>
-#include <queue> // CHANGED: Dana - Added for FIFO queue
+#include <queue> 
 
 class Process;
 
@@ -31,6 +31,8 @@ public:
 
     void deallocate(uint64_t  pid);
 
+    // CHANGED: Dana - Added a function to preload a specified number of pages for a process into memory.
+    void preloadPages(std::shared_ptr<Process> p, int startPage, int numPages);
     int getRandomMemorySize() const;
 
 private:
@@ -44,11 +46,9 @@ private:
 
     std::pair<int, int> translate(std::string logicalAddr, std::shared_ptr<Process> p);
 
-    // CHANGED: Dana - Added a helper function for the FIFO replacement algorithm
     int getVictimFrame_FIFO();
 
     std::unordered_map<std::string, std::vector<uint16_t>> backingStore_;
 
-    // CHANGED: Dana - Added a queue to track frame allocation order for FIFO
     std::queue<int> frame_fifo_queue_;
 };

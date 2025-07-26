@@ -48,7 +48,6 @@ public:
     std::string smi() const;
     void execute(const Instruction& ins, int coreId = -1);
     void genRandInst(uint64_t min_ins, uint64_t max_ins);
-    // CHANGED: Dana - Added a new method to load instructions from a string for screen -c
     void loadInstructionsFromString(const std::string& instruction_str);
     bool runOneInstruction(int coreId = -1);
     void setIsSleeping(bool val, uint64_t targetTick = 0) {
@@ -71,21 +70,15 @@ public:
     void setAllocatedMemory(int bytes) { allocatedMemoryBytes_ = bytes; }
     int getAllocatedMemory() const { return allocatedMemoryBytes_; }
 
-    void setTerminationReason(TerminationReason reason, const std::string& addr = "") {
-        if (terminationReason_ == TerminationReason::RUNNING) {
-            terminationReason_ = reason;
-            if (reason == TerminationReason::MEMORY_VIOLATION) {
-                violationTime_ = time(nullptr);
-                violationAddress_ = addr;
-            }
-            if (reason != TerminationReason::RUNNING) {
-                finished_ = true;
-            }
-        }
-    }
+    void setTerminationReason(TerminationReason reason, const std::string& addr = "");
     TerminationReason getTerminationReason() const { return terminationReason_; }
     time_t getViolationTime() const { return violationTime_; }
     std::string getViolationAddress() const { return violationAddress_; }
+
+    // CHANGED: Dana - Added members and methods to track if a process has been scheduled and to calculate pages for its symbol table, supporting page preloading.
+    bool hasBeenScheduled() const { return hasBeenScheduled_; }
+    void setHasBeenScheduled(bool val) { hasBeenScheduled_ = val; }
+    int getSymbolTablePages(int frameSize) const;
 
 
 private:
@@ -110,4 +103,5 @@ private:
     TerminationReason terminationReason_ = TerminationReason::RUNNING;
     time_t violationTime_ = 0;
     std::string violationAddress_ = "";
+    bool hasBeenScheduled_ = false;
 };

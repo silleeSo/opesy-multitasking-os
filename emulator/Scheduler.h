@@ -19,7 +19,7 @@ class Scheduler {
 public:
     Scheduler(int num_cpu, const std::string& scheduler_type, uint64_t quantum_cycles,
         uint64_t batch_process_freq, uint64_t min_ins, uint64_t max_ins,
-        uint64_t delay_per_exec, MemoryManager& memoryManager);
+        uint64_t delay_per_exec, MemoryManager& memoryManager, int frameSize);
 
     ~Scheduler();
 
@@ -42,6 +42,8 @@ public:
     size_t getCoresUsed() const;
     size_t getCoresAvailable() const;
 
+    // CHANGED: Dana - Added a getter for total active CPU ticks to support the vmstat command.
+    uint64_t getActiveCpuTicks() const;
 
     void updateCoreUtilization(int coreId, uint64_t ticksUsed);
     Core* getCore(int index) const;
@@ -50,7 +52,6 @@ private:
     void schedulerLoop();
     void processGeneratorLoop();
 
-    // Core specs
     int numCpus_;
     size_t nextCoreIndex_ = 0;
     std::string schedulerType_;
@@ -59,22 +60,18 @@ private:
     uint64_t minInstructions_;
     uint64_t maxInstructions_;
     uint64_t delayPerExec_;
+    int frameSize_;
 
-    // Core and process queues
     std::vector<std::unique_ptr<Core>> cores_;
     TSQueue<std::shared_ptr<Process>> readyQueue_;
-    // CHANGED: Dana - Removed the memoryPendingQueue as it's no longer needed
 
-    // Sleeping processes
     mutable std::mutex sleepingProcessesMutex_;
     std::vector<std::shared_ptr<Process>> sleepingProcesses_;
 
-    // Finished processes
     mutable std::mutex finishedProcessesMutex_;
     std::vector<std::shared_ptr<Process>> finishedProcesses_;
     std::unordered_set<uint64_t> finishedPIDs_;
 
-    // Running control
     std::thread schedulerThread_;
     std::atomic<bool> running_ = false;
 
@@ -88,7 +85,6 @@ private:
     std::vector<std::unique_ptr<std::atomic<uint64_t>>> coreTicksUsed_;
     std::atomic<uint64_t> schedulerStartTime_ = 0;
 
-    // Memory Management Support
     MemoryManager& memoryManager_;
     uint64_t lastQuantumSnapshot_ = 0;
     uint64_t quantumIndex_ = 0;

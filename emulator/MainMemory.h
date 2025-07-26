@@ -27,9 +27,14 @@ public:
 
     void freeFramesByPagePrefix(const std::string& prefix);
 
-    // NEW for demand paging
     std::vector<uint16_t> dumpPageFromFrame(int frameIndex, const std::string& baseAddress);
     void loadPageToFrame(int frameIndex, const std::vector<uint16_t>& data, const std::string& baseAddress);
+
+    // CHANGED: Dana - Added getters to expose memory statistics for the new process-smi and vmstat commands.
+    int getUsedFrames() const;
+    int getFreeFrames() const { return getFreeFrameIndex() == -1 ? 0 : totalFrames - getUsedFrames(); }
+    int getTotalMemoryBytes() const { return totalMemoryBytes; }
+    int getFrameSize() const { return frameSize; }
 
 private:
     int totalMemoryBytes;

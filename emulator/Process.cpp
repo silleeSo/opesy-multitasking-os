@@ -22,7 +22,7 @@ static std::mt19937 gen(rd());
 
 Process::Process(uint64_t pid, std::string name, MemoryManager* memManager)
     : pid_(pid), name_(std::move(name)), finished_(false), isSleeping_(false), sleepTargetTick_(0), memoryManager_(memManager),
-    terminationReason_(TerminationReason::RUNNING), allocatedMemoryBytes_(0), violationTime_(0) {
+    terminationReason_(TerminationReason::RUNNING), allocatedMemoryBytes_(0), violationTime_(0), hasBeenScheduled_(false) {
 }
 
 void Process::execute(const Instruction& ins, int coreId) {
@@ -137,7 +137,19 @@ void Process::execute(const Instruction& ins, int coreId) {
     }
 }
 
-// CHANGED: Dana - Added new method to parse instruction strings for screen -c
+void Process::setTerminationReason(TerminationReason reason, const std::string& addr) {
+    if (terminationReason_ == TerminationReason::RUNNING) {
+        terminationReason_ = reason;
+        if (reason == TerminationReason::MEMORY_VIOLATION) {
+            violationTime_ = time(nullptr);
+            violationAddress_ = addr;
+        }
+        if (reason != TerminationReason::RUNNING) {
+            finished_ = true;
+        }
+    }
+}
+
 void Process::loadInstructionsFromString(const std::string& instruction_str) {
     insList.clear();
     std::stringstream ss(instruction_str);
@@ -148,7 +160,6 @@ void Process::loadInstructionsFromString(const std::string& instruction_str) {
     };
 
     while (std::getline(ss, segment, ';')) {
-        // Trim leading/trailing whitespace from the instruction segment
         segment.erase(0, segment.find_first_not_of(" \t\n\r"));
         segment.erase(segment.find_last_not_of(" \t\n\r") + 1);
         if (segment.empty()) continue;
@@ -162,12 +173,9 @@ void Process::loadInstructionsFromString(const std::string& instruction_str) {
             inst.opcode = opcodeMap[opcode_str];
             std::string arg;
 
-            // Special handling for PRINT to treat the rest of the line as a single argument
             if (inst.opcode == 4) {
                 if (std::getline(ins_ss, arg)) {
-                    // trim leading space
                     arg.erase(0, arg.find_first_not_of(" \t"));
-                    // Handle quotes
                     if (arg.front() == '(' && arg.back() == ')') {
                         arg = arg.substr(1, arg.length() - 2);
                     }
@@ -392,4 +400,10 @@ std::string Process::smi() const {
     }
 
     return ss.str();
+}
+
+int Process::getSymbolTablePages(int frameSize) const {
+    if (frameSize <= 0) return 0;
+    // CHANGED: Dana - Added a static_cast to int to resolve the C4267 conversion warning.
+    return static_cast<int>((symbolTableOffset_ + frameSize - 1) / frameSize);
 }
