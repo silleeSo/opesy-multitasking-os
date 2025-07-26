@@ -1,76 +1,14 @@
-CSOPESY Emulator Report - 07/24/2025, 05:02:28 PM
+CSOPESY Emulator Report - 07/26/2025, 12:05:49 PM
 
-CPU utilization: 0.00%
-Cores used: 0
-Cores available: 32
+CPU utilization: 100.00%
+Cores used: 2
+Cores available: 0
 
 ----------------------------
 Running processes:
-  No processes currently running.
+p83             (07/26/2025 12:05:49PM) Core:0 23 / 100
+p1380           (07/26/2025 12:05:49PM) Core:1 2 / 100
 
 Finished processes:
-p4              (07/24/2025 04:58:52PM) Finished 100 / 100
-p6              (07/24/2025 04:58:52PM) Finished 102 / 102
-p9              (07/24/2025 04:58:54PM) Finished 100 / 100
-p2              (07/24/2025 04:58:55PM) Finished 100 / 100
-p3              (07/24/2025 04:58:56PM) Finished 100 / 100
-p23             (07/24/2025 04:58:57PM) Finished 100 / 100
-p1              (07/24/2025 04:58:57PM) Finished 100 / 100
-p5              (07/24/2025 04:58:57PM) Finished 102 / 102
-p22             (07/24/2025 04:58:57PM) Finished 100 / 100
-p28             (07/24/2025 04:58:58PM) Finished 100 / 100
-p51             (07/24/2025 04:58:58PM) Finished 102 / 102
-p41             (07/24/2025 04:58:58PM) Finished 102 / 102
-p47             (07/24/2025 04:58:59PM) Finished 100 / 100
-p43             (07/24/2025 04:58:59PM) Finished 100 / 100
-p18             (07/24/2025 04:58:59PM) Finished 101 / 101
-p20             (07/24/2025 04:58:59PM) Finished 100 / 100
-p34             (07/24/2025 04:58:59PM) Finished 100 / 100
-p44             (07/24/2025 04:59:00PM) Finished 102 / 102
-p26             (07/24/2025 04:59:00PM) Finished 100 / 100
-p16             (07/24/2025 04:59:00PM) Finished 102 / 102
-p59             (07/24/2025 04:59:00PM) Finished 101 / 101
-p11             (07/24/2025 04:59:00PM) Finished 100 / 100
-p19             (07/24/2025 04:59:01PM) Finished 100 / 100
-p17             (07/24/2025 04:59:01PM) Finished 100 / 100
-p46             (07/24/2025 04:59:01PM) Finished 102 / 102
-p14             (07/24/2025 04:59:01PM) Finished 102 / 102
-p45             (07/24/2025 04:59:01PM) Finished 102 / 102
-p29             (07/24/2025 04:59:01PM) Finished 102 / 102
-p24             (07/24/2025 04:59:02PM) Finished 100 / 100
-p8              (07/24/2025 04:59:02PM) Finished 100 / 100
-p10             (07/24/2025 04:59:02PM) Finished 100 / 100
-p27             (07/24/2025 04:59:02PM) Finished 102 / 102
-p37             (07/24/2025 04:59:02PM) Finished 100 / 100
-p31             (07/24/2025 04:59:02PM) Finished 102 / 102
-p61             (07/24/2025 04:59:02PM) Finished 100 / 100
-p30             (07/24/2025 04:59:02PM) Finished 100 / 100
-p40             (07/24/2025 04:59:02PM) Finished 100 / 100
-p53             (07/24/2025 04:59:02PM) Finished 100 / 100
-p12             (07/24/2025 04:59:02PM) Finished 102 / 102
-p62             (07/24/2025 04:59:02PM) Finished 100 / 100
-p33             (07/24/2025 04:59:02PM) Finished 100 / 100
-p52             (07/24/2025 04:59:03PM) Finished 100 / 100
-p21             (07/24/2025 04:59:03PM) Finished 102 / 102
-p7              (07/24/2025 04:59:03PM) Finished 100 / 100
-p13             (07/24/2025 04:59:03PM) Finished 100 / 100
-p58             (07/24/2025 04:59:03PM) Finished 100 / 100
-p63             (07/24/2025 04:59:03PM) Finished 101 / 101
-p15             (07/24/2025 04:59:03PM) Finished 100 / 100
-p35             (07/24/2025 04:59:03PM) Finished 102 / 102
-p36             (07/24/2025 04:59:03PM) Finished 102 / 102
-p25             (07/24/2025 04:59:03PM) Finished 102 / 102
-p55             (07/24/2025 04:59:03PM) Finished 100 / 100
-p32             (07/24/2025 04:59:04PM) Finished 102 / 102
-p57             (07/24/2025 04:59:04PM) Finished 102 / 102
-p42             (07/24/2025 04:59:04PM) Finished 100 / 100
-p48             (07/24/2025 04:59:04PM) Finished 100 / 100
-p54             (07/24/2025 04:59:04PM) Finished 101 / 101
-p56             (07/24/2025 04:59:04PM) Finished 100 / 100
-p38             (07/24/2025 04:59:04PM) Finished 100 / 100
-p50             (07/24/2025 04:59:04PM) Finished 100 / 100
-p39             (07/24/2025 04:59:04PM) Finished 100 / 100
-p49             (07/24/2025 04:59:04PM) Finished 102 / 102
-p60             (07/24/2025 04:59:05PM) Finished 100 / 100
-newscreen       (07/24/2025 05:00:31PM) Finished 100 / 100
+  No processes have finished.
 ----------------------------

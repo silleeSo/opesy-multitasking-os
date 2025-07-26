@@ -5,11 +5,8 @@
 #include <memory>
 #include <cstdint>
 
-//NEWLY ADDED: Chrysille
-#include <unordered_map>
-#include <string>
-#include <memory>
-//
+// Forward declaration for MemoryManager to avoid circular include
+class MemoryManager;
 
 class Process {
 public:
@@ -23,7 +20,8 @@ public:
         uint16_t repeats;
     };
 
-    Process(uint64_t pid, std::string name);
+    Process(uint64_t pid, std::string name, MemoryManager* memManager);
+
     uint64_t getPid() const { return pid_; }
     const std::string& getName() const { return name_; }
     bool isFinished() const { return finished_; }
@@ -41,8 +39,6 @@ public:
     void setFinishTime(time_t t) { finishTime_ = t; }
     time_t getFinishTime() const { return finishTime_; }
 
-    const std::unordered_map<std::string, uint16_t>& getVariables() const { return vars; }
-
     std::string smi() const;
     void execute(const Instruction& ins, int coreId = -1);
     void genRandInst(uint64_t min_ins, uint64_t max_ins);
@@ -52,7 +48,6 @@ public:
         sleepTargetTick_ = targetTick;
     }
 
-    //NEWLY ADDED: Chrysille
     std::unordered_map<std::string, std::string>& getSymbolTable() {
         return symbolTable_;
     }
@@ -72,19 +67,24 @@ private:
     bool finished_;
     bool isSleeping_ = false;
     uint64_t sleepTargetTick_ = 0;
-    int lastCoreId_ = -1;  // -1 means unassigned or unknown
+    int lastCoreId_ = -1;
     time_t finishTime_ = 0;
     std::vector<Instruction> insList;
     size_t insCount_ = 0;
-    std::unordered_map<std::string, uint16_t> vars;
+
+    // CHANGED: Dana - The old `vars` map has been removed.
+
     std::vector<LoopState> loopStack;
     std::vector<std::pair<time_t, std::string>> logs_;
 
-    //NEWLY ADDED: Chrysille
-    std::unordered_map<std::string, std::string> symbolTable_;  // var name → logical addr
-    std::unordered_map<int, int> pageTable_;                    // logical page → physical frame
-    std::unordered_map<int, bool> validBits_;                   // page validity
-    class MemoryManager* memoryManager = nullptr;
+    // CHANGED: Dana - The symbol table now correctly maps variable names to their logical address strings.
+    std::unordered_map<std::string, std::string> symbolTable_;
 
+    // CHANGED: Dana - Added an offset to track the next available address in the symbol table segment.
+    size_t symbolTableOffset_ = 0;
 
+    std::unordered_map<int, int> pageTable_;
+    std::unordered_map<int, bool> validBits_;
+
+    MemoryManager* memoryManager_ = nullptr;
 };

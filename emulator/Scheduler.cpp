@@ -224,7 +224,8 @@ void Scheduler::processGeneratorLoop() {
         if (now >= lastProcessGenTick_ + batchProcessFreq_) {
             uint64_t pid = getNextProcessId();
             std::string name = "p" + std::to_string(pid);
-            auto proc = std::make_shared<Process>(pid, name);
+            // NEWLY CHANGED: Dana - Modify to accommodate new Process constructor
+            auto proc = std::make_shared<Process>(pid, name, &memoryManager_);
             proc->genRandInst(minInstructions_, maxInstructions_);
             submit(proc);
             lastProcessGenTick_ = now;
