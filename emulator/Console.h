@@ -217,7 +217,7 @@ private:
                 startCpuTickThread();
             }
             else {
-                cout << "Initialization failed – check config.txt\n";
+                cout << "Initialization failed. Check config.txt\n";
             }
             return;
         }
