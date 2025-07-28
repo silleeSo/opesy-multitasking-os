@@ -7,12 +7,12 @@
       "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:config.txt||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MainMemory.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MainMemory.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MemoryManager.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MemoryManager.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MainMemory.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MainMemory.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MemoryManager.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:MemoryManager.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Scheduler.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -21,6 +21,14 @@
     {
       "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Scheduler.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Scheduler.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Core.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Core.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Core.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|solutionrelative:Core.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A1A2C41F-205D-422E-A120-D30C82A1865D}|emulator.vcxproj|C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Console.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -34,7 +42,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Bookmark",
@@ -42,15 +50,29 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "Scheduler.cpp",
-              "DocumentMoniker": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Scheduler.cpp",
-              "RelativeDocumentMoniker": "Scheduler.cpp",
-              "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Scheduler.cpp",
-              "RelativeToolTip": "Scheduler.cpp",
-              "ViewState": "AgIAAAkBAAAAAAAAAAAUwCQBAAABAAAAAAAAAA==",
+              "DocumentIndex": 1,
+              "Title": "MemoryManager.cpp",
+              "DocumentMoniker": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MemoryManager.cpp",
+              "RelativeDocumentMoniker": "MemoryManager.cpp",
+              "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MemoryManager.cpp",
+              "RelativeToolTip": "MemoryManager.cpp",
+              "ViewState": "AgIAAAUBAAAAAAAAAAAUwA4BAAAoAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-07-26T17:32:23.761Z"
+              "WhenOpened": "2025-07-28T19:06:41.118Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "MemoryManager.h",
+              "DocumentMoniker": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MemoryManager.h",
+              "RelativeDocumentMoniker": "MemoryManager.h",
+              "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MemoryManager.h",
+              "RelativeToolTip": "MemoryManager.h",
+              "ViewState": "AgIAABUAAAAAAAAAAAAUwDAAAAACAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-07-28T19:06:35.936Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -60,9 +82,10 @@
               "RelativeDocumentMoniker": "Scheduler.h",
               "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Scheduler.h",
               "RelativeToolTip": "Scheduler.h",
-              "ViewState": "AgIAAEMAAAAAAAAAAAAUwF4AAAACAAAAAAAAAA==",
+              "ViewState": "AgIAAEsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-07-26T17:32:18.306Z"
+              "WhenOpened": "2025-07-28T18:00:01.371Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -72,46 +95,61 @@
               "RelativeDocumentMoniker": "config.txt",
               "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\config.txt",
               "RelativeToolTip": "config.txt",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAVAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAASAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003109|",
               "WhenOpened": "2025-07-26T15:20:13.317Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "Scheduler.cpp",
+              "DocumentMoniker": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Scheduler.cpp",
+              "RelativeDocumentMoniker": "Scheduler.cpp",
+              "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Scheduler.cpp",
+              "RelativeToolTip": "Scheduler.cpp",
+              "ViewState": "AgIAAOEAAAAAAAAAAAAUwPwAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-07-26T17:32:23.761Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "Core.h",
+              "DocumentMoniker": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Core.h",
+              "RelativeDocumentMoniker": "Core.h",
+              "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Core.h",
+              "RelativeToolTip": "Core.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAUwBsAAAACAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-07-28T17:41:12.913Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 5,
+              "Title": "Core.cpp",
+              "DocumentMoniker": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Core.cpp",
+              "RelativeDocumentMoniker": "Core.cpp",
+              "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Core.cpp",
+              "RelativeToolTip": "Core.cpp",
+              "ViewState": "AgIAAEoAAAAAAAAAAAAUwGUAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-07-28T17:41:11.968Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
               "Title": "Console.h",
               "DocumentMoniker": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Console.h",
               "RelativeDocumentMoniker": "Console.h",
               "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\Console.h",
               "RelativeToolTip": "Console.h",
-              "ViewState": "AgIAAEYAAAAAAAAAAAAmwFQAAAARAAAAAAAAAA==",
+              "ViewState": "AgIAADMCAAAAAAAAAAAUwE0CAAACAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-07-26T12:56:11.528Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "MainMemory.cpp",
-              "DocumentMoniker": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MainMemory.cpp",
-              "RelativeDocumentMoniker": "MainMemory.cpp",
-              "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MainMemory.cpp",
-              "RelativeToolTip": "MainMemory.cpp",
-              "ViewState": "AgIAAIUAAAAAAAAAAAAUwIkAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-07-26T12:54:56.51Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "MainMemory.h",
-              "DocumentMoniker": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MainMemory.h",
-              "RelativeDocumentMoniker": "MainMemory.h",
-              "ToolTip": "C:\\Users\\asus\\OneDrive\\Desktop\\Personal\\School\\DLSU\\Acads\\2024 - 2025\\Term 3\\CSOPESY\\Assessments\\MO2\\opesy-multitasking-os\\emulator\\MainMemory.h",
-              "RelativeToolTip": "MainMemory.h",
-              "ViewState": "AgIAABwAAAAAAAAAAAAUwDcAAAACAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-07-26T12:54:57.238Z",
+              "WhenOpened": "2025-07-26T12:56:11.528Z",
               "EditorCaption": ""
             }
           ]

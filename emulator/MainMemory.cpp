@@ -50,12 +50,12 @@ int MainMemory::getTotalFrames() const {
 }
 
 int MainMemory::getFreeFrameIndex() const {
-    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(memoryMutex_));
+    std::lock_guard<std::mutex> lock(memoryMutex_);
     return _getFreeFrameIndex_unlocked();
 }
 
 bool MainMemory::isFrameValid(int index) const {
-    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(memoryMutex_));
+    std::lock_guard<std::mutex> lock(memoryMutex_);
     return (index >= 0 && static_cast<size_t>(index) < validBits.size()) ? validBits[static_cast<size_t>(index)] : false;
 }
 
@@ -80,7 +80,7 @@ void MainMemory::markFrameInvalid(int index) {
 }
 
 std::string MainMemory::getPageAtFrame(int index) const {
-    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(memoryMutex_));
+    std::lock_guard<std::mutex> lock(memoryMutex_);
     if (index >= 0 && index < totalFrames) return frameTable[index];
     return "";
 }
@@ -91,12 +91,12 @@ void MainMemory::writeMemory(const std::string& address, uint16_t value) {
 }
 
 uint16_t MainMemory::readMemory(const std::string& address) const {
-    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(memoryMutex_));
+    std::lock_guard<std::mutex> lock(memoryMutex_);
     return _readMemory_unlocked(address);
 }
 
 bool MainMemory::addressExists(const std::string& address) const {
-    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(memoryMutex_));
+    std::lock_guard<std::mutex> lock(memoryMutex_);
     return memory.count(address) > 0;
 }
 
@@ -106,12 +106,12 @@ std::unordered_map<std::string, uint16_t>& MainMemory::getMemoryMap() {
 }
 
 const std::vector<std::string>& MainMemory::getFrameTable() const {
-    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(memoryMutex_));
+    std::lock_guard<std::mutex> lock(memoryMutex_);
     return frameTable;
 }
 
 const std::vector<bool>& MainMemory::getValidBits() const {
-    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(memoryMutex_));
+    std::lock_guard<std::mutex> lock(memoryMutex_);
     return validBits;
 }
 
@@ -124,38 +124,54 @@ void MainMemory::freeFramesByPagePrefix(const std::string& prefix) {
     }
 }
 
+// FIXED: This function now correctly uses the physical base address derived from the frameIndex,
+// ignoring the logical baseAddress parameter to prevent overwriting other processes' data.
 std::vector<uint16_t> MainMemory::dumpPageFromFrame(int frameIndex, const std::string& baseAddress) {
     std::lock_guard<std::mutex> lock(memoryMutex_);
     std::vector<uint16_t> data;
-    int base = std::stoi(baseAddress, nullptr, 16);
+    // The baseAddress parameter is ignored to prevent bugs.
+    // The physical address is derived ONLY from the frame index.
+    int physicalBase = frameIndex * frameSize;
 
     for (int i = 0; i < frameSize; ++i) {
         std::stringstream ss;
-        ss << "0x" << std::hex << std::uppercase << (base + i);
+        ss << "0x" << std::hex << std::uppercase << (physicalBase + i); // Use physical address
         std::string addr = ss.str();
-        data.push_back(_readMemory_unlocked(addr)); // Use unlocked helper
+        data.push_back(_readMemory_unlocked(addr));
     }
-
     return data;
 }
 
+// FIXED: This function now correctly uses the physical base address derived from the frameIndex,
+// ignoring the logical baseAddress parameter to prevent overwriting other processes' data.
 void MainMemory::loadPageToFrame(int frameIndex, const std::vector<uint16_t>& data, const std::string& baseAddress) {
     std::lock_guard<std::mutex> lock(memoryMutex_);
-    int base = std::stoi(baseAddress, nullptr, 16);
+    // The baseAddress parameter is ignored to prevent bugs.
+    // The physical address is derived ONLY from the frame index.
+    int physicalBase = frameIndex * frameSize;
+
     for (size_t i = 0; i < data.size(); ++i) {
         std::stringstream ss;
-        ss << "0x" << std::hex << std::uppercase << (base + static_cast<int>(i));
+        ss << "0x" << std::hex << std::uppercase << (physicalBase + static_cast<int>(i)); // Use physical address
         std::string addr = ss.str();
-        _writeMemory_unlocked(addr, data[i]); // Use unlocked helper
+        _writeMemory_unlocked(addr, data[i]);
     }
 }
 
 int MainMemory::getUsedFrames() const {
-    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(memoryMutex_));
+    std::lock_guard<std::mutex> lock(memoryMutex_);
     return _getUsedFrames_unlocked();
 }
 
 int MainMemory::getFreeFrames() const {
-    std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(memoryMutex_));
-    return _getFreeFrameIndex_unlocked() == -1 ? 0 : totalFrames - _getUsedFrames_unlocked();
+    std::lock_guard<std::mutex> lock(memoryMutex_);
+    return totalFrames - _getUsedFrames_unlocked();
+}
+
+int MainMemory::getTotalMemoryBytes() const {
+    return totalMemoryBytes;
+}
+
+int MainMemory::getFrameSize() const {
+    return frameSize;
 }

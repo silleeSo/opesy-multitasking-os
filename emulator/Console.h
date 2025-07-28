@@ -225,7 +225,6 @@ private:
             cout << "Error: Specifications have not yet been initialized! Type 'initialize' first." << endl;
         }
         else {
-            // CHANGED: Dana - Refactored screen -s to set memory size but not allocate it.
             if (trimmedLine.rfind("screen -s ", 0) == 0) {
                 std::stringstream ss(trimmedLine.substr(10));
                 std::string processName;
@@ -252,7 +251,6 @@ private:
                     cout << "Usage: screen -s <process_name> <process_memory_size>" << endl;
                 }
             }
-            // CHANGED: Dana - Refactored screen -c to set memory size but not allocate it.
             else if (trimmedLine.rfind("screen -c ", 0) == 0) {
                 std::stringstream ss(trimmedLine.substr(10));
                 std::string processName;
@@ -500,15 +498,19 @@ private:
         cout << "Report written to csopesy-log.txt\n";
     }
 
-    // CHANGED: Dana - Added power-of-2 validation for memory parameters from config file.
+    // MODIFIED: Separated parsing from validation and added comprehensive range checks.
     bool loadConfigFile(const string& path) {
         ifstream in(path);
-        if (!in) { cout << "config.txt not found!\n"; return false; }
+        if (!in) {
+            cout << "config.txt not found!\n";
+            return false;
+        }
 
         unordered_map<string, string> kv;
         string k, v;
         while (in >> k >> v) kv[k] = stripQuotes(v);
 
+        // Step 1: Parse all values, catching any missing fields or conversion errors.
         try {
             cfg_.num_cpu = stoi(kv.at("num-cpu"));
             cfg_.scheduler = kv.at("scheduler");
@@ -523,13 +525,49 @@ private:
             cfg_.max_mem_per_proc = stoi(kv.at("max-mem-per-proc"));
         }
         catch (...) {
-            cout << "Malformed config.txt – missing field or unexpected error\n";
+            cout << "Malformed config.txt – missing field or non-numeric value where expected.\n";
             return false;
         }
 
+        // Step 2: Perform all logical and range validations.
+        if (cfg_.num_cpu < 1 || cfg_.num_cpu > 128) {
+            cout << "Configuration error: 'num-cpu' value of " << cfg_.num_cpu << " is outside the valid range of [1, 128]." << endl;
+            return false;
+        }
+        if (cfg_.quantum_cycles < 1) {
+            cout << "Configuration error: 'quantum-cycles' must be at least 1." << endl;
+            return false;
+        }
+        if (cfg_.batch_process_freq < 1) {
+            cout << "Configuration error: 'batch-process-freq' must be at least 1." << endl;
+            return false;
+        }
+        if (cfg_.min_ins < 1 || cfg_.max_ins < 1) {
+            cout << "Configuration error: 'min-ins' and 'max-ins' must be at least 1." << endl;
+            return false;
+        }
+        if (cfg_.min_ins > cfg_.max_ins) {
+            cout << "Configuration error: 'min-ins' (" << cfg_.min_ins << ") cannot be greater than 'max-ins' (" << cfg_.max_ins << ")." << endl;
+            return false;
+        }
         if (!isPowerOfTwo(cfg_.max_overall_mem) || !isPowerOfTwo(cfg_.mem_per_frame) ||
             !isPowerOfTwo(cfg_.min_mem_per_proc) || !isPowerOfTwo(cfg_.max_mem_per_proc)) {
             cout << "Configuration error: All memory sizes (max-overall-mem, mem-per-frame, min-mem-per-proc, max-mem-per-proc) must be a power of 2." << endl;
+            return false;
+        }
+        if (cfg_.min_mem_per_proc > cfg_.max_mem_per_proc) {
+            cout << "Configuration error: 'min-mem-per-proc' (" << cfg_.min_mem_per_proc
+                << ") cannot be greater than 'max-mem-per-proc' (" << cfg_.max_mem_per_proc << ")." << endl;
+            return false;
+        }
+        if (cfg_.max_mem_per_proc > cfg_.max_overall_mem) {
+            cout << "Configuration error: 'max-mem-per-proc' (" << cfg_.max_mem_per_proc
+                << ") cannot be greater than 'max-overall-mem' (" << cfg_.max_overall_mem << ")." << endl;
+            return false;
+        }
+        if (cfg_.mem_per_frame > cfg_.min_mem_per_proc) {
+            cout << "Configuration error: 'mem-per-frame' (" << cfg_.mem_per_frame
+                << ") cannot be greater than 'min-mem-per-proc' (" << cfg_.min_mem_per_proc << ")." << endl;
             return false;
         }
 

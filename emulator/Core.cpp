@@ -18,6 +18,13 @@ void Core::stop() {
     busy_ = false;
 }
 
+// Added this function definition
+void Core::join() {
+    if (worker_.joinable()) {
+        worker_.join();
+    }
+}
+
 bool Core::isBusy() const {
     return busy_;
 }
@@ -46,7 +53,7 @@ bool Core::tryAssign(std::shared_ptr<Process> p, uint64_t quantum) {
     return true;
 }
 
-// CHANGED: Dana - Wrapped instruction execution in a try-catch block to handle MAV exceptions
+// MODIFIED: The catch block now handles both MAV and the new Out of Memory exceptions.
 void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
     uint64_t executed = 0;
 
@@ -61,9 +68,9 @@ void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
             if (!ran) break;
         }
         catch (const std::runtime_error& e) {
-            // This block catches the "Memory Access Violation" exception.
-            // The process state is already set by the MemoryManager.
-            std::cerr << "[Core-" << id_ << "] Process " << p->getPid() << " terminated: " << e.what() << std::endl;
+            // This block now catches both "Memory Access Violation" and "Out of Memory".
+            // The process state is set by the MemoryManager before the exception is thrown.
+            std::cerr << "[Core-" << id_ << "] Process " << p->getPid() << " (" << p->getName() << ") terminated: " << e.what() << std::endl;
             break; // Exit the loop to terminate the process execution on this core.
         }
 
@@ -82,6 +89,7 @@ void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
         }
     }
 
+    // The scheduler handles the final state of the process (finished, requeued, etc.)
     if (p->isFinished()) {
         if (scheduler) scheduler->addFinishedProcess(p);
     }
