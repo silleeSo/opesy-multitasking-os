@@ -9,8 +9,10 @@
 #include <cstdio>
 #include <vector>
 
+// MODIFIED: The constructor now initializes the backingStoreFileName member to match the specification.
 MemoryManager::MemoryManager(MainMemory& mem, int minMemProc, int maxMemProc, int frameSz)
-    : memory(mem), minMemPerProc(minMemProc), maxMemPerProc(maxMemProc), frameSize(frameSz) {
+    : memory(mem), minMemPerProc(minMemProc), maxMemPerProc(maxMemProc), frameSize(frameSz),
+    backingStoreFileName("csopesy-backing-store.txt") {
     initializeBackingStoreFile();
 }
 
