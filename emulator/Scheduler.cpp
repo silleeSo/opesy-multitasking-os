@@ -37,27 +37,12 @@ void Scheduler::start() {
     }
 }
 
-// MODIFIED: This function now implements a graceful shutdown sequence.
 void Scheduler::stop() {
-    // 1. Signal all loops to terminate
+    for (const auto& core : cores_) core->stop();
     running_ = false;
     processGenEnabled_ = false;
-    for (const auto& core : cores_) {
-        core->stop(); // This sets busy_ = false in each core
-    }
-
-    // 2. Wait for the scheduler's own threads to finish
-    if (schedulerThread_.joinable()) {
-        schedulerThread_.join();
-    }
-    if (processGenThread_.joinable()) {
-        processGenThread_.join();
-    }
-
-    // 3. MOST IMPORTANT: Wait for all Core worker threads to complete execution
-    for (const auto& core : cores_) {
-        core->join();
-    }
+    if (schedulerThread_.joinable()) schedulerThread_.join();
+    if (processGenThread_.joinable()) processGenThread_.join();
 }
 
 void Scheduler::submit(std::shared_ptr<Process> p) {
@@ -165,7 +150,7 @@ Core* Scheduler::getCore(int index) const {
     return nullptr;
 }
 
-// FIXED: Improved robustness of memory allocation logic.
+// CHANGED: Dana - Refactored scheduler loop to allocate memory on first dispatch.
 void Scheduler::schedulerLoop() {
     while (running_.load()) {
         {
@@ -200,12 +185,13 @@ void Scheduler::schedulerLoop() {
                         }
                         // Now, allocate the memory and create pages in the backing store.
                         memoryManager_.allocateMemory(p, memToAlloc);
-                        p->setHasBeenScheduled(true); // Set flag after allocation to prevent re-allocation.
+                        p->setHasBeenScheduled(true);
                     }
 
                     uint64_t quantum = (schedulerType_ == "rr") ? quantumCycles_ : UINT64_MAX;
                     if (!core->tryAssign(p, quantum)) {
-                        // If assignment fails, just requeue. Don't reset the hasBeenScheduled flag.
+                        // If assignment fails, reset the flag so we try again next time.
+                        p->setHasBeenScheduled(false);
                         requeueProcess(p);
                     }
                     else {
@@ -225,8 +211,7 @@ void Scheduler::schedulerLoop() {
 
         uint64_t now = globalCpuTicks.load();
         if ((now - lastQuantumSnapshot_) >= quantumCycles_) {
-            // This function call appears to be a remnant of a previous design.
-            // memoryManager_.logMemorySnapshot(); 
+            memoryManager_.logMemorySnapshot();
             lastQuantumSnapshot_ = now;
         }
 
