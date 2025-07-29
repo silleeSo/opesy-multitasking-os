@@ -15,18 +15,16 @@
 
 #include "Process.h"
 #include "GlobalState.h"
-#include "MemoryManager.h"
+#include "MemoryManager.h" 
 
 static std::random_device rd;
 static std::mt19937 gen(rd());
 
-// Constructor for the Process class
 Process::Process(uint64_t pid, std::string name, MemoryManager* memManager)
     : pid_(pid), name_(std::move(name)), finished_(false), isSleeping_(false), sleepTargetTick_(0), memoryManager_(memManager),
     terminationReason_(TerminationReason::RUNNING), allocatedMemoryBytes_(0), violationTime_(0), hasBeenScheduled_(false) {
 }
 
-// Executes a single instruction depending on opcode type
 void Process::execute(const Instruction& ins, int coreId) {
     auto getValue = [this](const std::string& token) -> uint16_t {
         if (isdigit(token[0]) || (token[0] == '-' && token.size() > 1)) {
@@ -139,7 +137,6 @@ void Process::execute(const Instruction& ins, int coreId) {
     }
 }
 
-// Sets the reason for process termination, especially for memory violation
 void Process::setTerminationReason(TerminationReason reason, const std::string& addr) {
     if (terminationReason_ == TerminationReason::RUNNING) {
         terminationReason_ = reason;
@@ -153,7 +150,6 @@ void Process::setTerminationReason(TerminationReason reason, const std::string& 
     }
 }
 
-// Loads instructions from a single string and parses them into the instruction list
 void Process::loadInstructionsFromString(const std::string& instruction_str) {
     insList.clear();
     std::stringstream ss(instruction_str);
@@ -196,7 +192,6 @@ void Process::loadInstructionsFromString(const std::string& instruction_str) {
     }
 }
 
-// Generates a random instruction list with a defined instruction count range
 void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
     insList.clear();
     logs_.clear();
@@ -309,7 +304,6 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
     }
 }
 
-// Executes one instruction step for the process, returns false if finished or sleeping
 bool Process::runOneInstruction(int coreId) {
     if (isFinished()) return false;
 
@@ -343,7 +337,6 @@ bool Process::runOneInstruction(int coreId) {
     return true;
 }
 
-// Returns the string representation of the current state of the process, similar to process-smi
 std::string Process::smi() const {
     std::stringstream ss;
     ss << "Process name: " << name_ << "\n";
@@ -409,8 +402,8 @@ std::string Process::smi() const {
     return ss.str();
 }
 
-// Calculates the number of pages used by the symbol table based on frame size
 int Process::getSymbolTablePages(int frameSize) const {
     if (frameSize <= 0) return 0;
+    // CHANGED: Dana - Added a static_cast to int to resolve the C4267 conversion warning.
     return static_cast<int>((symbolTableOffset_ + frameSize - 1) / frameSize);
 }

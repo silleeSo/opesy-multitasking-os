@@ -1,4 +1,4 @@
-CSOPESY Emulator Report - 07/27/2025, 01:46:37 AM
+CSOPESY Emulator Report - 07/26/2025, 12:05:49 PM
 
 CPU utilization: 100.00%
 Cores used: 2
@@ -6,8 +6,8 @@ Cores available: 0
 
 ----------------------------
 Running processes:
-p536            (07/27/2025 01:46:37AM) Core:0 6 / 1000
-p1416           (07/27/2025 01:46:37AM) Core:1 1 / 1000
+p83             (07/26/2025 12:05:49PM) Core:0 23 / 100
+p1380           (07/26/2025 12:05:49PM) Core:1 2 / 100
 
 Finished processes:
   No processes have finished.

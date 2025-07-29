@@ -3,7 +3,6 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-#include <mutex>
 
 class MainMemory {
 public:
@@ -31,8 +30,9 @@ public:
     std::vector<uint16_t> dumpPageFromFrame(int frameIndex, const std::string& baseAddress);
     void loadPageToFrame(int frameIndex, const std::vector<uint16_t>& data, const std::string& baseAddress);
 
+    // CHANGED: Dana - Added getters to expose memory statistics for the new process-smi and vmstat commands.
     int getUsedFrames() const;
-    int getFreeFrames() const;
+    int getFreeFrames() const { return getFreeFrameIndex() == -1 ? 0 : totalFrames - getUsedFrames(); }
     int getTotalMemoryBytes() const { return totalMemoryBytes; }
     int getFrameSize() const { return frameSize; }
 
@@ -41,16 +41,7 @@ private:
     int frameSize;
     int totalFrames;
 
-    std::unordered_map<std::string, uint16_t> memory;
-    std::vector<std::string> frameTable;
-    std::vector<bool> validBits;
-
-    std::mutex memoryMutex_;
-
-    // Private helpers that do NOT lock the mutex
-    void _clearFrame_unlocked(int index);
-    void _writeMemory_unlocked(const std::string& address, uint16_t value);
-    uint16_t _readMemory_unlocked(const std::string& address) const;
-    int _getFreeFrameIndex_unlocked() const;
-    int _getUsedFrames_unlocked() const;
+    std::unordered_map<std::string, uint16_t> memory; // hex address → value
+    std::vector<std::string> frameTable;              // page ID per frame
+    std::vector<bool> validBits;                      // valid/invalid per frame
 };

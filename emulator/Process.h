@@ -1,105 +1,107 @@
 ﻿#pragma once
 #include <string>
 #include <vector>
-#include <cstdint>
-#include <memory> // For std::enable_shared_from_this
 #include <unordered_map>
-#include <utility>
-#include <ctime>
+#include <memory>
+#include <cstdint>
+#include <ctime> 
 
-// Forward declaration to avoid circular dependency
 class MemoryManager;
+class Process;
 
-// Represents a single instruction for a process
-struct Instruction {
-    uint8_t opcode = 0;
-    std::vector<std::string> args;
-};
-
-// Represents a state for a FOR loop
-struct LoopState {
-    uint64_t startIns;
-    uint16_t repeats;
-};
-
-// The Process class now correctly inherits from std::enable_shared_from_this
 class Process : public std::enable_shared_from_this<Process> {
 public:
-    enum class TerminationReason {
-        RUNNING,
-        FINISHED_NORMALLY,
-        MEMORY_VIOLATION
+    enum class TerminationReason { RUNNING, FINISHED_NORMALLY, MEMORY_VIOLATION };
+
+    struct Instruction {
+        uint8_t opcode = 0;
+        std::vector<std::string> args;
     };
 
-    // Constructor
+    struct LoopState {
+        size_t startIns;
+        uint16_t repeats;
+    };
+
     Process(uint64_t pid, std::string name, MemoryManager* memManager);
 
-    // Public Methods
-    void execute(const Instruction& ins, int coreId);
-    bool runOneInstruction(int coreId);
-    void genRandInst(uint64_t min_ins, uint64_t max_ins);
-    void loadInstructionsFromString(const std::string& instruction_str);
-    std::string smi() const;
-
-    // Getters
     uint64_t getPid() const { return pid_; }
     const std::string& getName() const { return name_; }
-    bool isFinished() const { return finished_.load(); }
-    bool isSleeping() const { return isSleeping_.load(); }
+
+    bool isFinished() const {
+        return finished_ || (terminationReason_ != TerminationReason::RUNNING);
+    }
+    bool isSleeping() const { return isSleeping_; }
     uint64_t getSleepTargetTick() const { return sleepTargetTick_; }
+    size_t getCurrentInstructionIndex() const { return insCount_; }
     size_t getTotalInstructions() const { return insList.size(); }
-    uint64_t getCurrentInstructionIndex() const { return insCount_; }
+    const std::vector<std::pair<time_t, std::string>>& getLogs() const {
+        return logs_;
+    }
+
+    void setLastCoreId(int id) { lastCoreId_ = id; }
+    int getLastCoreId() const { return lastCoreId_; }
+
+    void setFinishTime(time_t t) { finishTime_ = t; }
     time_t getFinishTime() const { return finishTime_; }
+
+    std::string smi() const;
+    void execute(const Instruction& ins, int coreId = -1);
+    void genRandInst(uint64_t min_ins, uint64_t max_ins);
+    void loadInstructionsFromString(const std::string& instruction_str);
+    bool runOneInstruction(int coreId = -1);
+    void setIsSleeping(bool val, uint64_t targetTick = 0) {
+        isSleeping_ = val;
+        sleepTargetTick_ = targetTick;
+    }
+
+    std::unordered_map<std::string, std::string>& getSymbolTable() {
+        return symbolTable_;
+    }
+
+    std::unordered_map<int, int>& getPageTable() {
+        return pageTable_;
+    }
+
+    std::unordered_map<int, bool>& getValidBits() {
+        return validBits_;
+    }
+
+    void setAllocatedMemory(int bytes) { allocatedMemoryBytes_ = bytes; }
     int getAllocatedMemory() const { return allocatedMemoryBytes_; }
-    bool hasBeenScheduled() const { return hasBeenScheduled_; }
+
+    void setTerminationReason(TerminationReason reason, const std::string& addr = "");
     TerminationReason getTerminationReason() const { return terminationReason_; }
     time_t getViolationTime() const { return violationTime_; }
-    const std::string& getViolationAddress() const { return violationAddress_; }
-    std::unordered_map<int, int>& getPageTable() { return pageTable_; }
-    const std::unordered_map<int, int>& getPageTable() const { return pageTable_; }
-    std::unordered_map<int, bool>& getValidBits() { return validBits_; }
-    const std::unordered_map<int, bool>& getValidBits() const { return validBits_; }
-    std::unordered_map<std::string, std::string>& getSymbolTable() { return symbolTable_; }
+    std::string getViolationAddress() const { return violationAddress_; }
+
+    // CHANGED: Dana - Added members and methods to track if a process has been scheduled and to calculate pages for its symbol table, supporting page preloading.
+    bool hasBeenScheduled() const { return hasBeenScheduled_; }
+    void setHasBeenScheduled(bool val) { hasBeenScheduled_ = val; }
     int getSymbolTablePages(int frameSize) const;
-
-
-    // Setters
-    void setLastCoreId(int id) { lastCoreId_ = id; }
-    void setIsSleeping(bool sleeping) { isSleeping_ = sleeping; }
-    void setFinishTime(time_t t) { finishTime_ = t; }
-    void setAllocatedMemory(int bytes) { allocatedMemoryBytes_ = bytes; }
-    void setHasBeenScheduled(bool scheduled) { hasBeenScheduled_ = scheduled; }
-    void setTerminationReason(TerminationReason reason, const std::string& addr = "");
 
 
 private:
     uint64_t pid_;
     std::string name_;
-    std::atomic<bool> finished_;
-    std::atomic<bool> isSleeping_;
-    uint64_t sleepTargetTick_;
-    time_t finishTime_{ 0 };
-    int lastCoreId_{ -1 };
-
-    // Instructions
+    bool finished_;
+    bool isSleeping_ = false;
+    uint64_t sleepTargetTick_ = 0;
+    int lastCoreId_ = -1;
+    time_t finishTime_ = 0;
     std::vector<Instruction> insList;
-    uint64_t insCount_{ 0 };
+    size_t insCount_ = 0;
     std::vector<LoopState> loopStack;
-
-    // Logs
     std::vector<std::pair<time_t, std::string>> logs_;
-
-    // Memory
-    MemoryManager* memoryManager_;
-    int allocatedMemoryBytes_;
     std::unordered_map<std::string, std::string> symbolTable_;
-    int symbolTableOffset_{ 0 };
+    size_t symbolTableOffset_ = 0;
     std::unordered_map<int, int> pageTable_;
     std::unordered_map<int, bool> validBits_;
-    bool hasBeenScheduled_;
+    MemoryManager* memoryManager_ = nullptr;
 
-    // Termination info
-    TerminationReason terminationReason_;
-    time_t violationTime_;
-    std::string violationAddress_;
+    int allocatedMemoryBytes_ = 0;
+    TerminationReason terminationReason_ = TerminationReason::RUNNING;
+    time_t violationTime_ = 0;
+    std::string violationAddress_ = "";
+    bool hasBeenScheduled_ = false;
 };
