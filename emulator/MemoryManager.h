@@ -7,6 +7,7 @@
 #include <vector>
 #include <utility>
 #include <queue> 
+#include <mutex>
 
 class Process;
 
@@ -49,6 +50,8 @@ private:
     int getVictimFrame_FIFO();
 
     std::unordered_map<std::string, std::vector<uint16_t>> backingStore_;
+    std::mutex backingStoreMutex_;
 
     std::queue<int> frame_fifo_queue_;
+    std::mutex fifoQueueMutex_;
 };

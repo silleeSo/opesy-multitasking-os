@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <utility>
 #include <ctime>
+#include <mutex>
 
 // Forward declaration to avoid circular dependency
 class MemoryManager;
@@ -88,6 +89,7 @@ private:
 
     // Logs
     std::vector<std::pair<time_t, std::string>> logs_;
+    mutable std::mutex logsMutex_; // Add this mutex
 
     // Memory
     MemoryManager* memoryManager_;

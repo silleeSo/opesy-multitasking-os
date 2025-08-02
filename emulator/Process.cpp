@@ -96,6 +96,7 @@ void Process::execute(const Instruction& ins, int coreId) {
                 }
             }
         }
+        std::lock_guard<std::mutex> lock(logsMutex_); // Add this lock
         logs_.emplace_back(time(nullptr), output);
     }
     else if (ins.opcode == 5 && ins.args.size() == 1) { // SLEEP
@@ -118,6 +119,7 @@ void Process::execute(const Instruction& ins, int coreId) {
             else loopStack.pop_back();
         }
         else {
+            std::lock_guard<std::mutex> lock(logsMutex_); // Add this lock
             logs_.emplace_back(time(nullptr), "[Error] END without matching FOR!");
         }
     }
@@ -350,22 +352,25 @@ std::string Process::smi() const {
     ss << "ID: " << pid_ << "\n";
 
     ss << "Logs:\n";
-    if (logs_.empty()) {
-        ss << "  (No logs yet)\n";
-    }
-    else {
-        for (const auto& kv : logs_) {
-            time_t timestamp = kv.first;
-            const std::string& message = kv.second;
-            tm localtm{};
+    {
+        std::lock_guard<std::mutex> lock(logsMutex_); // Add this lock
+        if (logs_.empty()) {
+            ss << "  (No logs yet)\n";
+        }
+        else {
+            for (const auto& kv : logs_) {
+                time_t timestamp = kv.first;
+                const std::string& message = kv.second;
+                tm localtm{};
 #ifdef _WIN32
-            localtime_s(&localtm, &timestamp);
+                localtime_s(&localtm, &timestamp);
 #else
-            localtime_r(&timestamp, &localtm);
+                localtime_r(&timestamp, &localtm);
 #endif
-            char buf[64];
-            strftime(buf, sizeof(buf), "(%m/%d/%Y %I:%M:%S%p)", &localtm);
-            ss << "  " << buf << " " << message << "\n";
+                char buf[64];
+                strftime(buf, sizeof(buf), "(%m/%d/%Y %I:%M:%S%p)", &localtm);
+                ss << "  " << buf << " " << message << "\n";
+            }
         }
     }
 
@@ -399,7 +404,8 @@ std::string Process::smi() const {
                     Process* nonConstThis = const_cast<Process*>(this);
                     value = memoryManager_->read(address, nonConstThis->shared_from_this());
                 }
-                catch (const std::runtime_error&) {
+                catch (const std::exception& e) {
+                    std::cerr << "Error getting variable value in smi(): " << e.what() << std::endl;
                 }
             }
             ss << "  " << varName << " = " << value << " @ " << address << "\n";

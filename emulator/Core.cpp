@@ -60,11 +60,9 @@ void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
             bool ran = p->runOneInstruction(id_);
             if (!ran) break;
         }
-        catch (const std::runtime_error& e) {
-            // This block catches the "Memory Access Violation" exception.
-            // The process state is already set by the MemoryManager.
-            std::cerr << "[Core-" << id_ << "] Process " << p->getPid() << " terminated: " << e.what() << std::endl;
-            break; // Exit the loop to terminate the process execution on this core.
+        catch (const std::exception& e) { // Changed from std::runtime_error
+            std::cerr << "[Core-" << id_ << "] Process " << p->getPid() << " terminated with exception: " << e.what() << std::endl;
+            break;
         }
 
         globalCpuTicks.fetch_add(1);

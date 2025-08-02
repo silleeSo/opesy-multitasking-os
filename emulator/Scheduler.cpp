@@ -4,6 +4,8 @@
 #include <chrono>
 #include <random>
 #include <iostream>
+#include <thread>
+#include <mutex>
 
 static std::random_device scheduler_rd;
 static std::mt19937 scheduler_gen(scheduler_rd());
@@ -102,8 +104,12 @@ std::vector<std::shared_ptr<Process>> Scheduler::getRunningProcesses() const {
 }
 
 std::vector<std::shared_ptr<Process>> Scheduler::getFinishedProcesses() const {
-    std::lock_guard<std::mutex> lock(finishedProcessesMutex_);
-    return finishedProcesses_;
+    std::vector<std::shared_ptr<Process>> temp_copy;
+    {
+        std::lock_guard<std::mutex> lock(finishedProcessesMutex_);
+        temp_copy = finishedProcesses_; // Copy happens inside the lock's scope.
+    } // Mutex is released here.
+    return temp_copy; // Return the copy after the lock is released.
 }
 
 std::vector<std::shared_ptr<Process>> Scheduler::getSleepingProcesses() const {
@@ -201,11 +207,10 @@ void Scheduler::schedulerLoop() {
             }
         }
 
-        {
-            std::lock_guard<std::mutex> lock(finishedProcessesMutex_);
-            for (auto& core : cores_) {
-                auto p = core->getRunningProcess();
-                if (p && p->isFinished()) addFinishedProcess(p);
+        for (auto& core : cores_) {
+            auto p = core->getRunningProcess();
+            if (p && p->isFinished()) {
+                addFinishedProcess(p); // This is now safe.
             }
         }
 
