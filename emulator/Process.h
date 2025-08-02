@@ -38,7 +38,7 @@ public:
     // Public Methods
     void execute(const Instruction& ins, int coreId);
     bool runOneInstruction(int coreId);
-    void genRandInst(uint64_t min_ins, uint64_t max_ins);
+    void genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize);
     void loadInstructionsFromString(const std::string& instruction_str);
     std::string smi() const;
 
@@ -62,6 +62,7 @@ public:
     const std::unordered_map<int, bool>& getValidBits() const { return validBits_; }
     std::unordered_map<std::string, std::string>& getSymbolTable() { return symbolTable_; }
     int getSymbolTablePages(int frameSize) const;
+    std::mutex& getPageTableMutex() { return pageTableMutex_; }
 
 
     // Setters
@@ -98,6 +99,7 @@ private:
     int symbolTableOffset_{ 0 };
     std::unordered_map<int, int> pageTable_;
     std::unordered_map<int, bool> validBits_;
+    mutable std::mutex pageTableMutex_;
     bool hasBeenScheduled_;
 
     // Termination info

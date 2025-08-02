@@ -156,9 +156,9 @@ Core* Scheduler::getCore(int index) const {
     return nullptr;
 }
 
-// CHANGED: Dana - Refactored scheduler loop to allocate memory on first dispatch.
 void Scheduler::schedulerLoop() {
     while (running_.load()) {
+        // --- Part 1: Wake up any sleeping processes ---
         {
             std::lock_guard<std::mutex> lock(sleepingProcessesMutex_);
             auto now = globalCpuTicks.load();
@@ -175,45 +175,49 @@ void Scheduler::schedulerLoop() {
             }
         }
 
-        for (size_t i = 0; i < cores_.size(); ++i) {
-            size_t index = (nextCoreIndex_ + i) % cores_.size();
-            auto& core = cores_[index];
-
+        // --- Part 2: Try to assign work to all available cores ---
+        for (auto& core : cores_) {
             if (!core->isBusy()) {
                 std::shared_ptr<Process> p;
                 if (readyQueue_.try_pop(p)) {
-                    // Allocate memory on first dispatch instead of at submission.
+                    // This is the admission control logic from before
                     if (!p->hasBeenScheduled()) {
                         int memToAlloc = p->getAllocatedMemory();
-                        // If memory is 0, it's a scheduler-generated process that needs a random size.
                         if (memToAlloc == 0) {
                             memToAlloc = memoryManager_.getRandomMemorySize();
                         }
-                        // Now, allocate the memory and create pages in the backing store.
-                        memoryManager_.allocateMemory(p, memToAlloc);
-                        p->setHasBeenScheduled(true);
+
+                        if (memoryManager_.allocateMemory(p, memToAlloc)) {
+                            p->setHasBeenScheduled(true);
+                        }
+                        else {
+                            requeueProcess(p);
+                            continue; // Allocation failed, try the next core with a different process
+                        }
                     }
 
+                    // Assign the process to the core
                     uint64_t quantum = (schedulerType_ == "rr") ? quantumCycles_ : UINT64_MAX;
                     if (!core->tryAssign(p, quantum)) {
-                        // If assignment fails, reset the flag so we try again next time.
+                        // This case is rare, but if assignment fails, requeue and reset
                         p->setHasBeenScheduled(false);
                         requeueProcess(p);
-                    }
-                    else {
-                        nextCoreIndex_ = (index + 1) % cores_.size();
                     }
                 }
             }
         }
 
+        // --- Part 3: Clean up any finished processes ---
+        // This check was moved from its own lock to be more integrated
         for (auto& core : cores_) {
             auto p = core->getRunningProcess();
             if (p && p->isFinished()) {
-                addFinishedProcess(p); // This is now safe.
+                addFinishedProcess(p);
             }
         }
 
+
+        // Log a memory snapshot periodically
         uint64_t now = globalCpuTicks.load();
         if ((now - lastQuantumSnapshot_) >= quantumCycles_) {
             memoryManager_.logMemorySnapshot();
@@ -231,13 +235,65 @@ void Scheduler::processGeneratorLoop() {
         if (now >= lastProcessGenTick_ + batchProcessFreq_) {
             uint64_t pid = getNextProcessId();
             std::string name = "p" + std::to_string(pid);
+
+            // 1. Decide the memory size for the new process first.
+            int memToAlloc = memoryManager_.getRandomMemorySize();
             auto proc = std::make_shared<Process>(pid, name, &memoryManager_);
 
-            // Memory is no longer allocated here. The scheduler will handle it.
-            proc->genRandInst(minInstructions_, maxInstructions_);
+            // 2. Set the memory size on the process object itself.
+            proc->setAllocatedMemory(memToAlloc);
+
+            // 3. Pass the size to the instruction generator.
+            proc->genRandInst(minInstructions_, maxInstructions_, memToAlloc);
+
             submit(proc);
             lastProcessGenTick_ = now;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+}
+
+std::shared_ptr<Process> Scheduler::findProcessById(uint64_t pid) const {
+    // Search running processes
+    for (const auto& core : cores_) {
+        auto p = core->getRunningProcess();
+        if (p && p->getPid() == pid) return p;
+    }
+
+    // We can't iterate. We must drain and refill it.
+    std::vector<std::shared_ptr<Process>> temp_processes;
+    std::shared_ptr<Process> found_process = nullptr;
+    std::shared_ptr<Process> current_p;
+
+    // We need to call non-const try_pop, so we must cast away the const-ness of `this`
+    Scheduler* nonConstThis = const_cast<Scheduler*>(this);
+    while (nonConstThis->readyQueue_.try_pop(current_p)) {
+        temp_processes.push_back(current_p);
+        if (current_p->getPid() == pid) {
+            found_process = current_p;
+        }
+    }
+
+    // Important: Push all processes back into the ready queue
+    for (const auto& p : temp_processes) {
+        nonConstThis->readyQueue_.push(p);
+    }
+
+    if (found_process) {
+        return found_process;
+    }
+
+    // Search sleeping processes
+    std::lock_guard<std::mutex> sleep_lock(sleepingProcessesMutex_);
+    for (const auto& p : sleepingProcesses_) {
+        if (p->getPid() == pid) return p;
+    }
+
+    // Search finished processes
+    std::lock_guard<std::mutex> finish_lock(finishedProcessesMutex_);
+    for (const auto& p : finishedProcesses_) {
+        if (p->getPid() == pid) return p;
+    }
+
+    return nullptr;
 }

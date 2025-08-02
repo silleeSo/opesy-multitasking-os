@@ -1,5 +1,6 @@
 #include "MemoryManager.h"
 #include "Process.h"
+#include "Scheduler.h"
 #include <sstream>
 #include <iostream>
 #include <iomanip>
@@ -9,32 +10,40 @@
 
 MemoryManager::MemoryManager(MainMemory& mem, int minMemProc, int maxMemProc, int frameSz)
     : memory(mem), minMemPerProc(minMemProc), maxMemPerProc(maxMemProc), frameSize(frameSz),
-    pagedInCount(0), pagedOutCount(0), nextPageId(0) {
+    pagedInCount(0), pagedOutCount(0), nextPageId(0), scheduler_(nullptr) { // Initialize scheduler_ to nullptr
 }
 
-// CHANGED: Dana - Updated allocateMemory to create zero-filled pages in the backing store by default.
+void MemoryManager::setScheduler(Scheduler* sched) {
+    scheduler_ = sched;
+}
+
 bool MemoryManager::allocateMemory(std::shared_ptr<Process> process, int requestedBytes) {
+    int pages_required = (requestedBytes + frameSize - 1) / frameSize;
+
+    if (pages_required > memory.getFreeFrames()) {
+        return false;
+    }
+
     process->setAllocatedMemory(requestedBytes);
 
-    int pages = (requestedBytes + frameSize - 1) / frameSize;
+    // Lock the process's page table mutex before initializing it
+    {
+        std::lock_guard<std::mutex> lock(process->getPageTableMutex());
+        for (int i = 0; i < pages_required; ++i) {
+            process->getPageTable()[i] = -1;
+            process->getValidBits()[i] = false;
+        }
+    }
 
-    // Acquire the lock ONCE before the loop
+    // Lock the backing store mutex to create the pages
     std::lock_guard<std::mutex> lock(backingStoreMutex_);
-
-    for (int i = 0; i < pages; ++i) {
-        process->getPageTable()[i] = -1;
-        process->getValidBits()[i] = false;
-
-        // Proactively create zero-filled pages in the backing store
+    for (int i = 0; i < pages_required; ++i) {
         std::stringstream ss;
         ss << "p" << process->getPid() << "_page" << i;
         std::string pageId = ss.str();
         std::vector<uint16_t> zeroPage(frameSize, 0);
-
-        // The lock is already held, so this operation is safe
         backingStore_[pageId] = zeroPage;
     }
-    // The mutex is automatically released here when the function returns
 
     return true;
 }
@@ -68,7 +77,29 @@ bool MemoryManager::isAddressInMemory(const std::string& addr) {
 
 void MemoryManager::deallocate(uint64_t pid) {
     std::string prefix = "p" + std::to_string(pid) + "_page";
-    memory.freeFramesByPagePrefix(prefix);
+
+    // This now atomically frees frames and tells us which ones were freed.
+    std::vector<int> freedFrames = memory.freeFramesByPagePrefix(prefix);
+    if (freedFrames.empty()) {
+        return; // Nothing was deallocated, so nothing to clean up.
+    }
+
+    // Use a set for fast lookups of the frames we need to remove.
+    std::unordered_set<int> freedFramesSet(freedFrames.begin(), freedFrames.end());
+
+    // Atomically rebuild the FIFO queue without the stale entries.
+    std::lock_guard<std::mutex> lock(fifoQueueMutex_);
+    std::queue<int> new_fifo_queue;
+    while (!frame_fifo_queue_.empty()) {
+        int frameIndex = frame_fifo_queue_.front();
+        frame_fifo_queue_.pop();
+
+        // Only keep frames that were NOT in the set of frames we just freed.
+        if (freedFramesSet.find(frameIndex) == freedFramesSet.end()) {
+            new_fifo_queue.push(frameIndex);
+        }
+    }
+    frame_fifo_queue_ = std::move(new_fifo_queue);
 }
 
 uint16_t MemoryManager::read(const std::string& addr, std::shared_ptr<Process> p) {
@@ -108,11 +139,23 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
 
     int pageNum = addr / frameSize;
     int offset = addr % frameSize;
+    bool needs_fault = false;
 
-    if (p->getValidBits().count(pageNum) == 0 || !p->getValidBits().at(pageNum)) {
+    // Lock, check the valid bit, then unlock
+    {
+        std::lock_guard<std::mutex> lock(p->getPageTableMutex());
+        if (p->getValidBits().count(pageNum) == 0 || !p->getValidBits().at(pageNum)) {
+            needs_fault = true;
+        }
+    }
+
+    // If a fault is needed, handle it now while the lock is released
+    if (needs_fault) {
         handlePageFault(p, pageNum);
     }
 
+    // Re-lock to safely read the final frame index
+    std::lock_guard<std::mutex> lock(p->getPageTableMutex());
     int frameIndex = p->getPageTable().at(pageNum);
     return { frameIndex, offset };
 }
@@ -126,32 +169,34 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
     if (frameIndex == -1) {
         int victimFrame = getVictimFrame_FIFO();
         if (victimFrame != -1) {
-            // This call is now safe because the lock is managed entirely inside evictPage
             evictPage(victimFrame);
             frameIndex = victimFrame;
         }
     }
 
     if (frameIndex != -1) {
-        std::string baseAddr = "0x" + std::to_string((p->getPid() << 8) + pageNum * frameSize);
+        std::string baseAddr = "0x" + std::to_string(frameIndex * frameSize);
 
-        // Lock only for the duration of the read from backingStore_
         {
             std::lock_guard<std::mutex> lock(backingStoreMutex_);
             if (backingStore_.count(pageId)) {
                 memory.loadPageToFrame(frameIndex, backingStore_[pageId], baseAddr);
             }
-        } // Lock is released here
+        }
 
-        memory.setFrame(frameIndex, pageId);
-        memory.markFrameValid(frameIndex);
-        p->getPageTable()[pageNum] = frameIndex;
-        p->getValidBits()[pageNum] = true;
+        // Lock the page table before updating it
+        {
+            std::lock_guard<std::mutex> lock(p->getPageTableMutex());
+            memory.setFrame(frameIndex, pageId);
+            memory.markFrameValid(frameIndex);
+            p->getPageTable()[pageNum] = frameIndex;
+            p->getValidBits()[pageNum] = true;
+        }
 
-        { // Use braces to create a new scope for the lock
+        {
             std::lock_guard<std::mutex> lock(fifoQueueMutex_);
             frame_fifo_queue_.push(frameIndex);
-        } // Lock is released here
+        }
 
         ++pagedInCount;
     }
@@ -170,13 +215,32 @@ void MemoryManager::evictPage(int index) {
     std::string pageId = memory.getPageAtFrame(index);
     if (pageId.empty()) return;
 
+    uint64_t ownerPid = -1;
+    int pageNum = -1;
+    size_t p_pos = pageId.find('p');
+    size_t page_pos = pageId.find("_page");
+    if (p_pos != std::string::npos && page_pos != std::string::npos) {
+        ownerPid = std::stoull(pageId.substr(p_pos + 1, page_pos - (p_pos + 1)));
+        pageNum = std::stoi(pageId.substr(page_pos + 5));
+    }
+
+    if (ownerPid != -1 && pageNum != -1 && scheduler_) {
+        auto ownerProcess = scheduler_->findProcessById(ownerPid);
+        if (ownerProcess) {
+            // Lock the owner's mutex before modifying its page table
+            std::lock_guard<std::mutex> lock(ownerProcess->getPageTableMutex());
+            ownerProcess->getValidBits()[pageNum] = false;
+        }
+    }
+
     std::string baseAddr = "0x" + std::to_string(index * frameSize);
     std::vector<uint16_t> data = memory.dumpPageFromFrame(index, baseAddr);
 
-    { // Use braces to scope the lock
+    // Lock the backing store to write the evicted page data
+    {
         std::lock_guard<std::mutex> lock(backingStoreMutex_);
         backingStore_[pageId] = data;
-    } // Lock is released here
+    }
 
     writeToBackingStore(pageId);
     memory.clearFrame(index);

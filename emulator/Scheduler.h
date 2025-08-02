@@ -38,6 +38,8 @@ public:
     std::vector<std::shared_ptr<Process>> getFinishedProcesses() const;
     std::vector<std::shared_ptr<Process>> getSleepingProcesses() const;
 
+    std::shared_ptr<Process> findProcessById(uint64_t pid) const;
+
     double getCpuUtilization() const;
     size_t getCoresUsed() const;
     size_t getCoresAvailable() const;

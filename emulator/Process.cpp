@@ -199,7 +199,7 @@ void Process::loadInstructionsFromString(const std::string& instruction_str) {
 }
 
 // Generates a random instruction list with a defined instruction count range
-void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
+void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
     insList.clear();
     logs_.clear();
     symbolTable_.clear();
@@ -218,6 +218,13 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
     std::uniform_real_distribution<double> distProbability(0.0, 1.0);
     std::vector<int> opcode_pool = { 1, 2, 3, 4, 5, 8, 9 };
     std::uniform_int_distribution<int> distGeneralOp(0, static_cast<int>(opcode_pool.size()) - 1);
+
+    // --- Start of Fix ---
+    // The memory is word-addressable (2 bytes). Calculate the number of available words.
+    int num_words = (memorySize > 0) ? (memorySize / 2) : 0;
+    // New distribution for selecting a random WORD index, not a byte address.
+    std::uniform_int_distribution<int> distWord(0, num_words > 0 ? num_words - 1 : 0);
+    // --- End of Fix ---
 
     int currentDepth = 0;
     uint64_t instructionsGenerated = 0;
@@ -259,14 +266,18 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins) {
             ins.args.push_back(varPool[distVar(gen)]);
             {
                 std::stringstream ss;
-                ss << "0x" << std::hex << distValue(gen);
+                // Get a random word index and multiply by 2 to get an even byte address
+                int byte_address = distWord(gen) * 2;
+                ss << "0x" << std::hex << byte_address;
                 ins.args.push_back(ss.str());
             }
             break;
         case 9: // WRITE
         {
             std::stringstream ss;
-            ss << "0x" << std::hex << distValue(gen);
+            // Get a random word index and multiply by 2 to get an even byte address
+            int byte_address = distWord(gen) * 2;
+            ss << "0x" << std::hex << byte_address;
             ins.args.push_back(ss.str());
         }
         ins.args.push_back(std::to_string(distValue(gen)));

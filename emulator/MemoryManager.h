@@ -10,10 +10,13 @@
 #include <mutex>
 
 class Process;
+class Scheduler;
 
 class MemoryManager {
 public:
     MemoryManager(MainMemory& mem, int minMemProc, int maxMemProc, int frameSz);
+
+    void setScheduler(Scheduler* sched);
 
     bool allocateMemory(std::shared_ptr<Process> process, int requestedBytes);
     std::string allocateVariable(std::shared_ptr<Process> process, const std::string& varName);
@@ -54,4 +57,6 @@ private:
 
     std::queue<int> frame_fifo_queue_;
     std::mutex fifoQueueMutex_;
+
+    Scheduler* scheduler_;
 };

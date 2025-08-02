@@ -210,9 +210,20 @@ private:
                 cout << "  max-mem-per-proc: " << cfg_.max_mem_per_proc << endl;
                 cout << endl;
 
+                // 1. Create MainMemory
                 mainMemory_ = std::make_unique<MainMemory>(cfg_.max_overall_mem, cfg_.mem_per_frame);
+
+                // 2. Create MemoryManager first, it no longer needs the scheduler to be created
                 memoryManager_ = std::make_unique<MemoryManager>(*mainMemory_, cfg_.min_mem_per_proc, cfg_.max_mem_per_proc, cfg_.mem_per_frame);
-                scheduler_ = std::make_unique<Scheduler>(cfg_.num_cpu, cfg_.scheduler, cfg_.quantum_cycles, cfg_.batch_process_freq, cfg_.min_ins, cfg_.max_ins, cfg_.delay_per_exec, *memoryManager_, cfg_.mem_per_frame);
+
+                // 3. Now create Scheduler, passing the valid MemoryManager reference
+                scheduler_ = std::make_unique<Scheduler>(cfg_.num_cpu, cfg_.scheduler, cfg_.quantum_cycles,
+                    cfg_.batch_process_freq, cfg_.min_ins, cfg_.max_ins,
+                    cfg_.delay_per_exec, *memoryManager_, cfg_.mem_per_frame);
+
+                // 4. Finally, link the MemoryManager back to the Scheduler using the new setter
+                memoryManager_->setScheduler(scheduler_.get());
+
                 scheduler_->start();
                 startCpuTickThread();
             }
@@ -235,7 +246,7 @@ private:
                     if (isValidMemorySize(memorySize)) {
                         auto newProcess = make_shared<Process>(scheduler_->getNextProcessId(), processName, memoryManager_.get());
                         newProcess->setAllocatedMemory(memorySize);
-                        newProcess->genRandInst(cfg_.min_ins, cfg_.max_ins);
+                        newProcess->genRandInst(cfg_.min_ins, cfg_.max_ins, memorySize);
                         scheduler_->submit(newProcess);
                         cout << "Process '" << processName << "' created and submitted." << endl;
 

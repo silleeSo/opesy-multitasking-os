@@ -26,7 +26,7 @@ public:
     const std::vector<std::string>& getFrameTable() const;
     const std::vector<bool>& getValidBits() const;
 
-    void freeFramesByPagePrefix(const std::string& prefix);
+    std::vector<int> freeFramesByPagePrefix(const std::string& prefix);
 
     std::vector<uint16_t> dumpPageFromFrame(int frameIndex, const std::string& baseAddress);
     void loadPageToFrame(int frameIndex, const std::vector<uint16_t>& data, const std::string& baseAddress);

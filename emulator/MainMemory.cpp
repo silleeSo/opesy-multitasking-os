@@ -115,13 +115,16 @@ const std::vector<bool>& MainMemory::getValidBits() const {
     return validBits;
 }
 
-void MainMemory::freeFramesByPagePrefix(const std::string& prefix) {
+std::vector<int> MainMemory::freeFramesByPagePrefix(const std::string& prefix) {
     std::lock_guard<std::mutex> lock(memoryMutex_);
+    std::vector<int> freedFrames;
     for (size_t i = 0; i < frameTable.size(); ++i) {
         if (validBits[i] && frameTable[i].find(prefix) == 0) {
-            _clearFrame_unlocked(static_cast<int>(i)); // Use unlocked helper
+            _clearFrame_unlocked(static_cast<int>(i));
+            freedFrames.push_back(static_cast<int>(i));
         }
     }
+    return freedFrames;
 }
 
 std::vector<uint16_t> MainMemory::dumpPageFromFrame(int frameIndex, const std::string& baseAddress) {
