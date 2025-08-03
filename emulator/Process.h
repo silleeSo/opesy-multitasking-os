@@ -73,6 +73,9 @@ public:
     void setHasBeenScheduled(bool scheduled) { hasBeenScheduled_ = scheduled; }
     void setTerminationReason(TerminationReason reason, const std::string& addr = "");
 
+    // For debugging
+    Instruction getCurrentInstruction() const;
+
 
 private:
     uint64_t pid_;

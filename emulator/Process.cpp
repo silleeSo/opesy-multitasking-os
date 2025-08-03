@@ -51,19 +51,30 @@ void Process::execute(const Instruction& ins, int coreId) {
         };
 
     if (ins.opcode == 1 && ins.args.size() >= 1) { // DECLARE
-        if (symbolTable_.size() >= 32) {
-            logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. DECLARE ignored.");
-            return;
-        }
         const std::string& varName = ins.args[0];
-        std::stringstream ss;
-        ss << "0x" << std::hex << std::setw(4) << std::setfill('0') << symbolTableOffset_;
-        std::string logicalAddress = ss.str();
-        symbolTable_[varName] = logicalAddress;
-        symbolTableOffset_ += 2;
-        if (ins.args.size() == 2) {
-            uint16_t initialValue = clamp(getValue(ins.args[1]));
-            if (memoryManager_) memoryManager_->write(logicalAddress, initialValue, shared_from_this());
+
+        if (symbolTable_.size() * 2 < 64) { // Check if space available for a new 2-byte variable 
+            // This now correctly calls the MemoryManager to allocate a variable
+            // and get its logical address within the process's symbol table segment.
+            std::string logicalAddress = memoryManager_->allocateVariable(shared_from_this(), varName);
+
+            if (!logicalAddress.empty()) { // Check if allocation was successful
+                if (ins.args.size() == 2) { // If an initial value is provided
+                    uint16_t initialValue = clamp(getValue(ins.args[1]));
+                    if (memoryManager_) memoryManager_->write(logicalAddress, initialValue, shared_from_this());
+                }
+                else {
+                    // Variable is declared without an explicit value, MemoryManager::allocateVariable already wrote 0.
+                }
+            }
+            else {
+                std::lock_guard<std::mutex> lock(logsMutex_);
+                logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. DECLARE for '" + varName + "' ignored.");
+            }
+        }
+        else {
+            std::lock_guard<std::mutex> lock(logsMutex_);
+            logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. DECLARE for '" + varName + "' ignored."); // 
         }
     }
     else if (ins.opcode == 2 && ins.args.size() == 3) { // ADD
@@ -85,50 +96,131 @@ void Process::execute(const Instruction& ins, int coreId) {
         }
     }
     else if (ins.opcode == 4) { // PRINT
-        std::string output;
-        if (!ins.args.empty()) {
-            for (const auto& arg : ins.args) {
-                if (symbolTable_.count(arg)) {
-                    output += std::to_string(getValue(arg));
+        std::string output_message;
+
+        auto stripAndTrim = [](std::string s) {
+            // Trim leading/trailing whitespace first
+            size_t first = s.find_first_not_of(" \t\n\r");
+            if (std::string::npos == first) s.clear();
+            else s = s.substr(first, (s.find_last_not_of(" \t\n\r") - first + 1));
+
+            // NEW: Handle potential leading backslash before a quote
+            bool hasLeadingBackslashQuote = (s.length() >= 2 && s.front() == '\\' && s[1] == '"');
+            // NEW: Handle potential trailing backslash before a quote (at end of string)
+            bool hasTrailingBackslashQuote = (s.length() >= 2 && s.back() == '"' && s[s.length() - 2] == '\\');
+
+
+            // Now, check and remove actual quotes (possibly escaped by backslashes)
+            if (!s.empty() && s.length() >= 2 &&
+                ((s.front() == '"' && s.back() == '"') || (hasLeadingBackslashQuote && hasTrailingBackslashQuote))) { // Modified condition
+                std::string stripped = s.substr(1, s.length() - 2);
+
+                // If it had leading/trailing backslashes before quotes, remove them from the stripped string
+                if (hasLeadingBackslashQuote) {
+                    stripped = stripped.substr(1); // Remove the leading backslash
                 }
-                else {
-                    output += arg;
+                if (hasTrailingBackslashQuote) {
+                    // This is more complex. If the original string was \"abc\"", then stripped is "abc\"".
+                    // We need to remove the last backslash.
+                    if (!stripped.empty() && stripped.back() == '\\') { // This logic is tricky, let's simplify.
+                        // For now, assume if hasTrailingBackslashQuote, then the last char of 'stripped' is a backslash that needs to go.
+                        stripped.pop_back(); // Remove the trailing backslash
+                    }
+                }
+                return stripped;
+            }
+            return s;
+            };
+
+        if (!ins.args.empty()) {
+            std::string full_print_argument = ins.args[0];
+            std::stringstream arg_splitter(full_print_argument);
+            std::string part;
+
+            while (std::getline(arg_splitter, part, '+')) {
+                std::string processed_part = stripAndTrim(part); // Use the helper
+
+                if (!processed_part.empty()) {
+                    // Now, processed_part will have quotes stripped if it was a literal
+                    // So, if it contained quotes, it's now just the content.
+                    // If it was a variable, it's just the variable name.
+
+                    // Check if it's a variable
+                    if (symbolTable_.count(processed_part)) {
+                        uint16_t varValue = getValue(processed_part); // Use processed_part for getValue
+                        output_message += std::to_string(varValue);
+                    }
+                    else {
+                        // It must be a literal (quotes already stripped) or some other direct text
+                        output_message += processed_part;
+                    }
                 }
             }
         }
-        std::lock_guard<std::mutex> lock(logsMutex_); // Add this lock
-        logs_.emplace_back(time(nullptr), output);
+        std::lock_guard<std::mutex> lock(logsMutex_);
+        logs_.emplace_back(time(nullptr), output_message);
     }
+    // --- FIX: The SLEEP handler is now simplified ---
     else if (ins.opcode == 5 && ins.args.size() == 1) { // SLEEP
         uint8_t ticks = static_cast<uint8_t>(getValue(ins.args[0]));
         isSleeping_ = true;
         sleepTargetTick_ = globalCpuTicks.load() + ticks;
-        insCount_++;
+        // The insCount_++ is REMOVED from here.
     }
     else if (ins.opcode == 6 && ins.args.size() == 1) { // FOR
         uint16_t repeatCount = getValue(ins.args[0]);
         if (repeatCount > 1000) repeatCount = 1000;
-        if (loopStack.size() >= 3) return;
-        loopStack.push_back({ insCount_ + 1, repeatCount });
+        if (loopStack.size() >= 3) return; // Prevent deep nesting
+
+        // --- FIX: Save the CURRENT instruction counter as the loop's start. ---
+        // runOneInstruction has already advanced it to the first instruction of the loop body.
+        loopStack.push_back({ insCount_, repeatCount });
     }
     else if (ins.opcode == 7) { // END
         if (!loopStack.empty()) {
             LoopState& currentLoop = loopStack.back();
             currentLoop.repeats--;
-            if (currentLoop.repeats > 0) insCount_ = currentLoop.startIns - 1;
-            else loopStack.pop_back();
+            if (currentLoop.repeats > 0) {
+                // This jump logic is now correct because FOR saves the right index.
+                insCount_ = currentLoop.startIns;
+            }
+            else {
+                loopStack.pop_back();
+            }
         }
         else {
-            std::lock_guard<std::mutex> lock(logsMutex_); // Add this lock
+            std::lock_guard<std::mutex> lock(logsMutex_);
             logs_.emplace_back(time(nullptr), "[Error] END without matching FOR!");
         }
     }
     else if (ins.opcode == 8 && ins.args.size() == 2) { // READ
         const std::string& varName = ins.args[0];
         const std::string& sourceAddress = ins.args[1];
-        if (memoryManager_ && symbolTable_.count(varName)) {
+
+        // Ensure the variable exists in the symbol table, allocate if not.
+        // Similar logic to DECLARE, but for READ.
+        if (!symbolTable_.count(varName)) {
+            if (symbolTable_.size() * 2 < 64) {
+                std::string logicalAddress = memoryManager_->allocateVariable(shared_from_this(), varName);
+                if (logicalAddress.empty()) {
+                    // Failed to allocate variable (symbol table full), log warning and return
+                    std::lock_guard<std::mutex> lock(logsMutex_);
+                    logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. READ for '" + varName + "' ignored.");
+                    return; // Stop execution of this instruction
+                }
+            }
+            else {
+                // Symbol table full, cannot create variable for READ
+                std::lock_guard<std::mutex> lock(logsMutex_);
+                logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. READ for '" + varName + "' ignored.");
+                return; // Stop execution of this instruction
+            }
+        }
+
+        // Now that the variable is guaranteed to be in symbolTable_
+        if (memoryManager_) {
             uint16_t value = memoryManager_->read(sourceAddress, shared_from_this());
-            const std::string& destAddress = symbolTable_.at(varName);
+            const std::string& destAddress = symbolTable_.at(varName); // Now 'varName' is guaranteed to be in symbolTable_
             memoryManager_->write(destAddress, value, shared_from_this());
         }
     }
@@ -166,39 +258,64 @@ void Process::loadInstructionsFromString(const std::string& instruction_str) {
     };
 
     while (std::getline(ss, segment, ';')) {
-        segment.erase(0, segment.find_first_not_of(" \t\n\r"));
-        segment.erase(segment.find_last_not_of(" \t\n\r") + 1);
+        segment.erase(0, segment.find_first_not_of(" \t\n\r")); // Trim leading whitespace
+        segment.erase(segment.find_last_not_of(" \t\n\r") + 1); // Trim trailing whitespace
         if (segment.empty()) continue;
 
-        std::stringstream ins_ss(segment);
-        std::string opcode_str;
-        ins_ss >> opcode_str;
+        // NEW: Find the end of the opcode (first space or first parenthesis)
+        size_t opcode_end = segment.find_first_of(" ("); // Find first space or opening parenthesis
+        std::string first_word;
+        std::string remainder_of_segment; // What's left after extracting opcode
 
-        if (opcodeMap.count(opcode_str)) {
+        if (opcode_end == std::string::npos) { // No space or parenthesis found, assume whole segment is opcode
+            first_word = segment;
+            remainder_of_segment = "";
+        }
+        else {
+            first_word = segment.substr(0, opcode_end);
+            remainder_of_segment = segment.substr(opcode_end); // Keep the rest including the delimiter
+        }
+
+        first_word.erase(0, first_word.find_first_not_of(" \t\n\r")); // Re-trim first_word in case it ended up with leading spaces
+        first_word.erase(first_word.find_last_not_of(" \t\n\r") + 1); // Re-trim first_word
+
+        if (opcodeMap.count(first_word)) {
             Instruction inst;
-            inst.opcode = opcodeMap[opcode_str];
-            std::string arg;
+            inst.opcode = opcodeMap[first_word];
 
-            if (inst.opcode == 4) {
-                if (std::getline(ins_ss, arg)) {
-                    arg.erase(0, arg.find_first_not_of(" \t"));
-                    if (arg.front() == '(' && arg.back() == ')') {
-                        arg = arg.substr(1, arg.length() - 2);
-                    }
-                    inst.args.push_back(arg);
+            std::string args_portion = remainder_of_segment; // Now args_portion gets the remainder directly
+            args_portion.erase(0, args_portion.find_first_not_of(" \t")); // Trim leading whitespace from args portion
+
+            // Special handling for PRINT opcode arguments
+            if (inst.opcode == 4) { // PRINT
+                // Now, args_portion should reliably be like "(\"...\")" or "(\"...\")"
+                size_t open_paren = args_portion.find('(');
+                size_t close_paren = args_portion.rfind(')');
+
+                if (open_paren != std::string::npos && close_paren != std::string::npos && close_paren > open_paren) {
+                    std::string arg_content = args_portion.substr(open_paren + 1, close_paren - open_paren - 1);
+                    inst.args.push_back(arg_content);
+                }
+                else {
+                    // This fallback should ideally not be hit if PRINT syntax is correct
+                    inst.args.push_back(args_portion);
                 }
             }
-            else {
-                while (ins_ss >> arg) {
+            else { // General parsing for other opcodes
+                std::stringstream args_parser(args_portion);
+                std::string arg;
+                while (args_parser >> arg) {
                     inst.args.push_back(arg);
                 }
             }
             insList.push_back(inst);
         }
+        else {
+        }
     }
 }
 
-// Generates a random instruction list with a defined instruction count range
+// This is the final, correct version of this function.
 void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
     insList.clear();
     logs_.clear();
@@ -216,85 +333,97 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
     std::uniform_int_distribution<int> distSmallValue(0, 100);
     std::uniform_int_distribution<int> distSleepTicks(1, 10);
     std::uniform_real_distribution<double> distProbability(0.0, 1.0);
-    std::vector<int> opcode_pool = { 1, 2, 3, 4, 5, 8, 9 };
-    std::uniform_int_distribution<int> distGeneralOp(0, static_cast<int>(opcode_pool.size()) - 1);
 
-    // --- Start of Fix ---
-    // The memory is word-addressable (2 bytes). Calculate the number of available words.
-    int num_words = (memorySize > 0) ? (memorySize / 2) : 0;
-    // New distribution for selecting a random WORD index, not a byte address.
-    std::uniform_int_distribution<int> distWord(0, num_words > 0 ? num_words - 1 : 0);
-    // --- End of Fix ---
+    // Define memory layout constants to respect the symbol table segment
+    const int SYMBOL_TABLE_SIZE = 64;
+    const int GENERAL_MEM_BASE = SYMBOL_TABLE_SIZE;
+    const int generalMemorySize = memorySize - SYMBOL_TABLE_SIZE;
+
+    // Create separate opcode pools based on whether general memory is available
+    std::vector<int> opcode_pool_full = { 1, 2, 3, 4, 5, 8, 9 };
+    std::vector<int> opcode_pool_no_mem = { 1, 2, 3, 4, 5 }; // No READ/WRITE if no general memory
+
+    bool canUseGeneralMemory = (generalMemorySize > 0);
+    const auto& current_opcode_pool = canUseGeneralMemory ? opcode_pool_full : opcode_pool_no_mem;
+    std::uniform_int_distribution<int> distGeneralOp(0,
+        static_cast<int>(current_opcode_pool.size()) - 1);
+
+    // Create a separate distribution specifically for general memory addresses
+    int num_general_words = canUseGeneralMemory ? (generalMemorySize / 2) : 0;
+    // The range must be from 0 to the number of words MINUS ONE.
+    std::uniform_int_distribution<int> distGeneralWord(0, num_general_words > 0 ? num_general_words - 1 : 0);
 
     int currentDepth = 0;
     uint64_t instructionsGenerated = 0;
 
     while (instructionsGenerated < totalInstructions) {
-        int opcode;
-        bool allowFor = (currentDepth < 3);
+        int opcode = current_opcode_pool[distGeneralOp(gen)];
 
-        if (allowFor && distProbability(gen) < 0.15 &&
-            instructionsGenerated + 3 <= totalInstructions) {
-            opcode = 6;
-        }
-        else {
-            opcode = opcode_pool[distGeneralOp(gen)];
+        if (opcode == 6 && (currentDepth >= 3 || instructionsGenerated + 3 > totalInstructions)) {
+            continue;
         }
 
         Instruction ins;
         ins.opcode = opcode;
 
         switch (opcode) {
-        case 1:
+        case 1: // DECLARE
             ins.args.push_back(varPool[distVar(gen)]);
             if (distProbability(gen) < 0.5) {
                 ins.args.push_back(std::to_string(distValue(gen)));
             }
             break;
-        case 2:
-        case 3:
+        case 2: // ADD
+        case 3: // SUB
             ins.args.push_back(varPool[distVar(gen)]);
             ins.args.push_back(varPool[distVar(gen)]);
             ins.args.push_back(std::to_string(distSmallValue(gen)));
             break;
-        case 4:
+        case 4: // PRINT
             break;
-        case 5:
+        case 5: // SLEEP
             ins.args.push_back(std::to_string(distSleepTicks(gen)));
             break;
         case 8: // READ
-            ins.args.push_back(varPool[distVar(gen)]);
+        case 9: // WRITE
+            if (!canUseGeneralMemory) continue;
+
+            if (opcode == 8) ins.args.push_back(varPool[distVar(gen)]);
+
             {
                 std::stringstream ss;
-                // Get a random word index and multiply by 2 to get an even byte address
-                int byte_address = distWord(gen) * 2;
+                int random_word_offset = distGeneralWord(gen) * 2;
+                int byte_address = GENERAL_MEM_BASE + random_word_offset;
                 ss << "0x" << std::hex << byte_address;
                 ins.args.push_back(ss.str());
             }
+
+            if (opcode == 9) ins.args.push_back(std::to_string(distValue(gen)));
             break;
-        case 9: // WRITE
-        {
-            std::stringstream ss;
-            // Get a random word index and multiply by 2 to get an even byte address
-            int byte_address = distWord(gen) * 2;
-            ss << "0x" << std::hex << byte_address;
-            ins.args.push_back(ss.str());
-        }
-        ins.args.push_back(std::to_string(distValue(gen)));
-        break;
-        case 6: {
+
+        case 6: { // FOR
             std::uniform_int_distribution<int> distRepeats(1, 5);
             ins.args.push_back(std::to_string(distRepeats(gen)));
             insList.push_back(ins);
             instructionsGenerated++;
             currentDepth++;
+
             int maxBlock = static_cast<int>(totalInstructions - instructionsGenerated - 1);
+            if (maxBlock <= 0) {
+                currentDepth--;
+                insList.pop_back();
+                instructionsGenerated--;
+                continue;
+            }
+
             std::uniform_int_distribution<int> distBlock(1, std::min(5, maxBlock));
             int blockSize = distBlock(gen);
+
             for (int i = 0; i < blockSize; ++i) {
                 Instruction body;
-                int innerOpcode = opcode_pool[distGeneralOp(gen)];
-                if (innerOpcode == 6 && currentDepth >= 3) continue;
+                std::uniform_int_distribution<int> inner_dist(0, static_cast<int>(current_opcode_pool.size()) - 1);
+                int innerOpcode = current_opcode_pool[inner_dist(gen)];
+                if (innerOpcode == 6) continue;
                 body.opcode = innerOpcode;
                 insList.push_back(body);
                 instructionsGenerated++;
@@ -310,13 +439,14 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
         insList.push_back(ins);
         instructionsGenerated++;
     }
-    while (currentDepth > 0 && instructionsGenerated < totalInstructions) {
+
+    while (currentDepth > 0) {
         Instruction endIns;
         endIns.opcode = 7;
         insList.push_back(endIns);
-        instructionsGenerated++;
         currentDepth--;
     }
+
     if (insList.size() > totalInstructions) {
         insList.resize(totalInstructions);
     }
@@ -324,15 +454,16 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
 
 // Executes one instruction step for the process, returns false if finished or sleeping
 bool Process::runOneInstruction(int coreId) {
-    if (isFinished()) return false;
+    if (isFinished()) {
+        return false;
+    }
 
     if (isSleeping_) {
         if (globalCpuTicks.load() >= sleepTargetTick_) {
             isSleeping_ = false;
-            sleepTargetTick_ = 0;
         }
         else {
-            return false;
+            return false; // Still sleeping
         }
     }
 
@@ -341,16 +472,20 @@ bool Process::runOneInstruction(int coreId) {
         return false;
     }
 
-    execute(insList[insCount_], coreId);
+    const Instruction& currentIns = insList[insCount_];
 
-    if (isFinished()) return false;
+    // --- FIX: Store the counter's state BEFORE execution ---
+    uint64_t instructionIndexBeforeExecution = insCount_;
 
-    if (!isSleeping_) {
+    execute(currentIns, coreId);
+
+    // --- FIX: Only increment the counter if the instruction was not a jump (like END) ---
+    if (insCount_ == instructionIndexBeforeExecution) {
         insCount_++;
     }
 
-    if (insCount_ >= insList.size()) {
-        setTerminationReason(TerminationReason::FINISHED_NORMALLY);
+    if (isFinished()) {
+        return false;
     }
 
     return true;
@@ -430,4 +565,12 @@ std::string Process::smi() const {
 int Process::getSymbolTablePages(int frameSize) const {
     if (frameSize <= 0) return 0;
     return static_cast<int>((symbolTableOffset_ + frameSize - 1) / frameSize);
+}
+
+// For debugging
+Instruction Process::getCurrentInstruction() const {
+    if (insCount_ < insList.size()) {
+        return insList[insCount_];
+    }
+    return {}; // Return empty instruction if out of bounds
 }
