@@ -20,54 +20,79 @@ void MemoryManager::setScheduler(Scheduler* sched) {
 bool MemoryManager::allocateMemory(std::shared_ptr<Process> process, int requestedBytes) {
     int pages_required = (requestedBytes + frameSize - 1) / frameSize;
 
-    if (pages_required > memory.getFreeFrames()) {
-        return false;
-    }
+    // --- REMOVE THIS BLOCK (Admission Control for Physical Frames) ---
+    // if (pages_required > memory.getFreeFrames()) {
+    //     return false;
+    // }
+    // --- END REMOVAL ---
 
     process->setAllocatedMemory(requestedBytes);
 
-    // Lock the process's page table mutex before initializing it
     {
         std::lock_guard<std::mutex> lock(process->getPageTableMutex());
         for (int i = 0; i < pages_required; ++i) {
             process->getPageTable()[i] = -1;
-            process->getValidBits()[i] = false;
+            process->getValidBits()[i] = false; // Initially all pages are in backing store
         }
     }
 
-    // Lock the backing store mutex to create the pages
-    std::lock_guard<std::mutex> lock(backingStoreMutex_);
-    for (int i = 0; i < pages_required; ++i) {
-        std::stringstream ss;
-        ss << "p" << process->getPid() << "_page" << i;
-        std::string pageId = ss.str();
-        std::vector<uint16_t> zeroPage(frameSize, 0);
-        backingStore_[pageId] = zeroPage;
+    // Lock the backing store mutex to create the pages (conceptually)
+    {
+        std::lock_guard<std::mutex> lock(backingStoreMutex_);
+        for (int i = 0; i < pages_required; ++i) {
+            std::stringstream ss;
+            ss << "p" << process->getPid() << "_page" << i;
+            std::string pageId = ss.str();
+            std::vector<uint16_t> zeroPage(frameSize / 2, 0);
+            backingStore_[pageId] = zeroPage; // Pages are "stored" in the backingStore_ map by default
+        }
     }
 
-    return true;
+    return true; // Always succeed if virtual allocation and backing store setup is complete
 }
 
 int MemoryManager::getRandomMemorySize() const {
+    // 1. Create a list of all valid power-of-2 sizes in the configured range.
+    std::vector<int> powerOfTwoSizes;
+    for (int size = minMemPerProc; size <= maxMemPerProc; size *= 2) {
+        if (size > 0) { // Ensure we don't loop infinitely if minMemPerProc is 0
+            powerOfTwoSizes.push_back(size);
+        }
+    }
+
+    if (powerOfTwoSizes.empty()) {
+        // Fallback to min size if the range is invalid (e.g., min > max)
+        return minMemPerProc;
+    }
+
+    // 2. Pick a random INDEX from the list of valid sizes.
     static std::random_device rd;
     static std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dist(minMemPerProc, maxMemPerProc);
-    return dist(gen);
+    std::uniform_int_distribution<> dist(0, static_cast<int>(powerOfTwoSizes.size()) - 1);
+
+    // 3. Return the valid power-of-2 size at that index.
+    return powerOfTwoSizes[dist(gen)];
 }
 
 std::string MemoryManager::allocateVariable(std::shared_ptr<Process> process, const std::string& varName) {
-    if (process->getSymbolTable().size() * 2 >= 64) {
-        return "";
+    // Check if symbol table is full (max 32 variables * 2 bytes/variable = 64 bytes)
+    if (process->getSymbolTable().size() * 2 >= 64) { // 
+        return ""; // Cannot allocate more variables 
     }
 
-    uint16_t base = static_cast<uint16_t>(process->getPid()) << 8;
-    uint16_t offset = static_cast<uint16_t>(process->getSymbolTable().size() * 2);
+    // The logical address for a variable starts from 0x0 within the process's memory space.
+    // The offset is based on the current size of the symbol table * 2 (for uint16_t).
+    uint16_t currentOffsetInSymbolTable = static_cast<uint16_t>(process->getSymbolTable().size() * 2);
+
     std::stringstream ss;
-    ss << "0x" << std::hex << std::uppercase << base + offset;
+    ss << "0x" << std::hex << std::uppercase << currentOffsetInSymbolTable; // Logical address is just the offset within the symbol table segment
 
     std::string address = ss.str();
     process->getSymbolTable()[varName] = address;
-    write(address, 0, process);
+    // When a variable is declared, its initial value is 0 unless specified.
+    // The problem implies initial value 0 for uninitialized blocks, but for DECLARE with a value, it's set.
+    // For allocateVariable, which is called by DECLARE without an explicit value, 0 is appropriate.
+    write(address, 0, process); // Write 0 to the newly allocated variable's memory location
     return address;
 }
 
@@ -102,23 +127,35 @@ void MemoryManager::deallocate(uint64_t pid) {
     frame_fifo_queue_ = std::move(new_fifo_queue);
 }
 
-uint16_t MemoryManager::read(const std::string& addr, std::shared_ptr<Process> p) {
-    std::pair<int, int> result = translate(addr, p);
-    int frame = result.first;
-    int offset = result.second;
-    int physicalAddr = frame * frameSize + offset;
+uint16_t MemoryManager::read(const std::string& logicalAddr, std::shared_ptr<Process> p) {
+    // Translate the logical address to a physical frame and offset.
+    std::pair<int, int> physicalLocation = translate(logicalAddr, p);
+    int frameIndex = physicalLocation.first;
+    int offset = physicalLocation.second;
+
+    // The physical address is the base of the frame plus the offset.
+    int physicalByteAddress = frameIndex * frameSize + offset;
+
+    // Convert the physical byte address to the hex string key used by MainMemory.
     std::stringstream ss;
-    ss << "0x" << std::hex << std::uppercase << physicalAddr;
+    ss << "0x" << std::hex << std::uppercase << physicalByteAddress;
+
     return memory.readMemory(ss.str());
 }
 
-void MemoryManager::write(const std::string& addr, uint16_t value, std::shared_ptr<Process> p) {
-    std::pair<int, int> result = translate(addr, p);
-    int frame = result.first;
-    int offset = result.second;
-    int physicalAddr = frame * frameSize + offset;
+void MemoryManager::write(const std::string& logicalAddr, uint16_t value, std::shared_ptr<Process> p) {
+    // Translate the logical address to a physical frame and offset.
+    std::pair<int, int> physicalLocation = translate(logicalAddr, p);
+    int frameIndex = physicalLocation.first;
+    int offset = physicalLocation.second;
+
+    // The physical address is the base of the frame plus the offset.
+    int physicalByteAddress = frameIndex * frameSize + offset;
+
+    // Convert the physical byte address to the hex string key used by MainMemory.
     std::stringstream ss;
-    ss << "0x" << std::hex << std::uppercase << physicalAddr;
+    ss << "0x" << std::hex << std::uppercase << physicalByteAddress;
+
     memory.writeMemory(ss.str(), value);
 }
 
@@ -132,7 +169,7 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
         throw std::runtime_error("Invalid memory address format.");
     }
 
-    if (addr < 0 || addr >= p->getAllocatedMemory()) {
+    if (addr < 0 || (addr + 1) >= p->getAllocatedMemory()) {
         p->setTerminationReason(Process::TerminationReason::MEMORY_VIOLATION, logicalAddr);
         throw std::runtime_error("Memory Access Violation");
     }
@@ -141,7 +178,6 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
     int offset = addr % frameSize;
     bool needs_fault = false;
 
-    // Lock, check the valid bit, then unlock
     {
         std::lock_guard<std::mutex> lock(p->getPageTableMutex());
         if (p->getValidBits().count(pageNum) == 0 || !p->getValidBits().at(pageNum)) {
@@ -149,21 +185,19 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
         }
     }
 
-    // If a fault is needed, handle it now while the lock is released
     if (needs_fault) {
         handlePageFault(p, pageNum);
     }
 
-    // Re-lock to safely read the final frame index
     std::lock_guard<std::mutex> lock(p->getPageTableMutex());
     int frameIndex = p->getPageTable().at(pageNum);
     return { frameIndex, offset };
 }
 
 void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
-    std::stringstream ss;
-    ss << "p" << p->getPid() << "_page" << pageNum;
-    std::string pageId = ss.str();
+    std::stringstream ss_pageId;
+    ss_pageId << "p" << p->getPid() << "_page" << pageNum;
+    std::string pageId = ss_pageId.str();
 
     int frameIndex = memory.getFreeFrameIndex();
     if (frameIndex == -1) {
@@ -175,7 +209,10 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
     }
 
     if (frameIndex != -1) {
-        std::string baseAddr = "0x" + std::to_string(frameIndex * frameSize);
+        // --- FIX: Use a stringstream to correctly format the base address as hexadecimal ---
+        std::stringstream ss_baseAddr;
+        ss_baseAddr << "0x" << std::hex << (frameIndex * frameSize);
+        std::string baseAddr = ss_baseAddr.str();
 
         {
             std::lock_guard<std::mutex> lock(backingStoreMutex_);
@@ -217,6 +254,7 @@ void MemoryManager::evictPage(int index) {
 
     uint64_t ownerPid = -1;
     int pageNum = -1;
+    std::shared_ptr<Process> ownerProcess = nullptr; // <--- Added
     size_t p_pos = pageId.find('p');
     size_t page_pos = pageId.find("_page");
     if (p_pos != std::string::npos && page_pos != std::string::npos) {
@@ -225,24 +263,26 @@ void MemoryManager::evictPage(int index) {
     }
 
     if (ownerPid != -1 && pageNum != -1 && scheduler_) {
-        auto ownerProcess = scheduler_->findProcessById(ownerPid);
+        ownerProcess = scheduler_->findProcessById(ownerPid); // <--- Get owner process
         if (ownerProcess) {
-            // Lock the owner's mutex before modifying its page table
             std::lock_guard<std::mutex> lock(ownerProcess->getPageTableMutex());
             ownerProcess->getValidBits()[pageNum] = false;
         }
     }
 
-    std::string baseAddr = "0x" + std::to_string(index * frameSize);
+    std::stringstream ss_baseAddr;
+    ss_baseAddr << "0x" << std::hex << (index * frameSize);
+    std::string baseAddr = ss_baseAddr.str();
+
     std::vector<uint16_t> data = memory.dumpPageFromFrame(index, baseAddr);
 
-    // Lock the backing store to write the evicted page data
     {
         std::lock_guard<std::mutex> lock(backingStoreMutex_);
         backingStore_[pageId] = data;
     }
 
-    writeToBackingStore(pageId);
+    // Pass all relevant information to the logging function
+    writeToBackingStore(pageId, ownerProcess, index, data); // <--- Modified call
     memory.clearFrame(index);
     ++pagedOutCount;
 }
@@ -258,9 +298,73 @@ int MemoryManager::getVictimFrame_FIFO() {
     return victimFrame;
 }
 
-void MemoryManager::writeToBackingStore(const std::string& pageId) {
+void MemoryManager::writeToBackingStore(const std::string& pageId, std::shared_ptr<Process> ownerProcess, int frameIndex, const std::vector<uint16_t>& pageData) {
     std::ofstream out("csopesy-backing-store.txt", std::ios::app);
-    out << "Evicted: " << pageId << std::endl;
+    if (!out.is_open()) {
+        std::cerr << "Error: Could not open csopesy-backing-store.txt for writing." << std::endl;
+        return;
+    }
+
+    time_t now = time(nullptr);
+    tm localtm{};
+#ifdef _WIN32
+    localtime_s(&localtm, &now);
+#else
+    localtime_r(&now, &localtm);
+#endif
+    char buf[64];
+    strftime(buf, sizeof(buf), "%m/%d/%Y, %I:%M:%S %p", &localtm);
+
+    out << "\n--- BACKING STORE SNAPSHOT (Timestamp: " << buf << ") ---\n";
+    out << "Evicted Page: " << pageId << "\n";
+
+    uint64_t ownerPid = -1;
+    int pageNum = -1;
+    size_t p_pos = pageId.find('p');
+    size_t page_pos = pageId.find("_page");
+    if (p_pos != std::string::npos && page_pos != std::string::npos) {
+        ownerPid = std::stoull(pageId.substr(p_pos + 1, page_pos - (p_pos + 1)));
+        pageNum = std::stoi(pageId.substr(page_pos + 5));
+    }
+
+    if (ownerProcess) {
+        out << "Owner Process: " << ownerProcess->getName() << " (PID: " << ownerProcess->getPid() << ")\n";
+    }
+    else {
+        out << "Owner Process: Unknown (PID: " << ownerPid << ")\n"; // Fallback if process not found
+    }
+    out << "Logical Page Number: " << pageNum << "\n";
+    out << "Evicted From Frame: " << frameIndex << "\n\n";
+
+    out << "Page Data (Hex):\n";
+    out << std::hex << std::uppercase << std::setfill('0');
+    for (size_t i = 0; i < pageData.size(); ++i) {
+        out << "0x" << std::setw(2) << (pageNum * frameSize + i * 2) << ": " // Logical address offset
+            << "0x" << std::setw(4) << pageData[i] << " ";
+        if ((i + 1) % 8 == 0) out << "\n"; // Newline every 8 words
+    }
+    out << std::dec << std::endl; // Reset to decimal and endline
+
+    // If this is page 0 and it holds the symbol table
+    if (pageNum == 0 && ownerProcess) {
+        out << "\nSymbol Table Contents:\n";
+        // Lock the process's symbol table to prevent race conditions during iteration
+        std::lock_guard<std::mutex> lock(ownerProcess->getPageTableMutex()); // Reusing pageTableMutex for symbol table
+        const auto& symbolTable = ownerProcess->getSymbolTable();
+        for (const auto& pair : symbolTable) {
+            const std::string& varName = pair.first;
+            const std::string& logicalAddr = pair.second;
+            // Read the value directly from the provided pageData if within this page,
+            // or rely on the read function (less efficient, but safer if data isn't guaranteed in pageData)
+            // For this enhanced log, we assume pageData contains the *entire* page.
+            int varOffset = std::stoi(logicalAddr, nullptr, 16);
+            if (varOffset >= 0 && varOffset < pageData.size() * 2) { // Check if variable is within this pageData
+                uint16_t varValue = pageData[varOffset / 2]; // uint16_t values, so divide by 2 for word index
+                out << "  Variable '" << varName << "': " << logicalAddr << " -> 0x" << std::hex << std::setw(4) << varValue << std::dec << "\n";
+            }
+        }
+    }
+    out << "-------------------------------------------------------------------\n";
 }
 
 void MemoryManager::logMemorySnapshot() {

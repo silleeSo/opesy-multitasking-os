@@ -180,35 +180,17 @@ void Scheduler::schedulerLoop() {
             if (!core->isBusy()) {
                 std::shared_ptr<Process> p;
                 if (readyQueue_.try_pop(p)) {
-                    // This is the admission control logic from before
-                    if (!p->hasBeenScheduled()) {
-                        int memToAlloc = p->getAllocatedMemory();
-                        if (memToAlloc == 0) {
-                            memToAlloc = memoryManager_.getRandomMemorySize();
-                        }
+                    // --- FIX: The admission control logic has been removed from the scheduler ---
+                    // This responsibility is now handled by the Core's workerLoop.
 
-                        if (memoryManager_.allocateMemory(p, memToAlloc)) {
-                            p->setHasBeenScheduled(true);
-                        }
-                        else {
-                            requeueProcess(p);
-                            continue; // Allocation failed, try the next core with a different process
-                        }
-                    }
-
-                    // Assign the process to the core
+                    // Assign the process directly to the core
                     uint64_t quantum = (schedulerType_ == "rr") ? quantumCycles_ : UINT64_MAX;
-                    if (!core->tryAssign(p, quantum)) {
-                        // This case is rare, but if assignment fails, requeue and reset
-                        p->setHasBeenScheduled(false);
-                        requeueProcess(p);
-                    }
+                    core->tryAssign(p, quantum);
                 }
             }
         }
 
         // --- Part 3: Clean up any finished processes ---
-        // This check was moved from its own lock to be more integrated
         for (auto& core : cores_) {
             auto p = core->getRunningProcess();
             if (p && p->isFinished()) {
@@ -219,7 +201,7 @@ void Scheduler::schedulerLoop() {
 
         // Log a memory snapshot periodically
         uint64_t now = globalCpuTicks.load();
-        if ((now - lastQuantumSnapshot_) >= quantumCycles_) {
+        if (quantumCycles_ > 0 && (now - lastQuantumSnapshot_) >= quantumCycles_) {
             memoryManager_.logMemorySnapshot();
             lastQuantumSnapshot_ = now;
         }
@@ -236,15 +218,15 @@ void Scheduler::processGeneratorLoop() {
             uint64_t pid = getNextProcessId();
             std::string name = "p" + std::to_string(pid);
 
-            // 1. Decide the memory size for the new process first.
             int memToAlloc = memoryManager_.getRandomMemorySize();
             auto proc = std::make_shared<Process>(pid, name, &memoryManager_);
 
-            // 2. Set the memory size on the process object itself.
+            // Set the desired memory size on the process object.
             proc->setAllocatedMemory(memToAlloc);
 
-            // 3. Pass the size to the instruction generator.
-            proc->genRandInst(minInstructions_, maxInstructions_, memToAlloc);
+            // --- FIX: REMOVE THIS LINE ---
+            // The main schedulerLoop will now handle instruction generation after allocation.
+            // proc->genRandInst(minInstructions_, maxInstructions_, memToAlloc);
 
             submit(proc);
             lastProcessGenTick_ = now;
@@ -254,45 +236,30 @@ void Scheduler::processGeneratorLoop() {
 }
 
 std::shared_ptr<Process> Scheduler::findProcessById(uint64_t pid) const {
-    // Search running processes
+    // Search running processes on cores
     for (const auto& core : cores_) {
         auto p = core->getRunningProcess();
         if (p && p->getPid() == pid) return p;
     }
 
-    // We can't iterate. We must drain and refill it.
-    std::vector<std::shared_ptr<Process>> temp_processes;
-    std::shared_ptr<Process> found_process = nullptr;
-    std::shared_ptr<Process> current_p;
+    // --- FIX: REMOVED the entire block that unsafely drains and refills the ready queue ---
+    // A process in the ready queue is not in a frame, so it cannot be a victim for eviction.
+    // Searching it is both logically incorrect and the source of a race condition.
 
-    // We need to call non-const try_pop, so we must cast away the const-ness of `this`
-    Scheduler* nonConstThis = const_cast<Scheduler*>(this);
-    while (nonConstThis->readyQueue_.try_pop(current_p)) {
-        temp_processes.push_back(current_p);
-        if (current_p->getPid() == pid) {
-            found_process = current_p;
+    // Search sleeping processes
+    {
+        std::lock_guard<std::mutex> sleep_lock(sleepingProcessesMutex_);
+        for (const auto& p : sleepingProcesses_) {
+            if (p->getPid() == pid) return p;
         }
     }
 
-    // Important: Push all processes back into the ready queue
-    for (const auto& p : temp_processes) {
-        nonConstThis->readyQueue_.push(p);
-    }
-
-    if (found_process) {
-        return found_process;
-    }
-
-    // Search sleeping processes
-    std::lock_guard<std::mutex> sleep_lock(sleepingProcessesMutex_);
-    for (const auto& p : sleepingProcesses_) {
-        if (p->getPid() == pid) return p;
-    }
-
     // Search finished processes
-    std::lock_guard<std::mutex> finish_lock(finishedProcessesMutex_);
-    for (const auto& p : finishedProcesses_) {
-        if (p->getPid() == pid) return p;
+    {
+        std::lock_guard<std::mutex> finish_lock(finishedProcessesMutex_);
+        for (const auto& p : finishedProcesses_) {
+            if (p->getPid() == pid) return p;
+        }
     }
 
     return nullptr;

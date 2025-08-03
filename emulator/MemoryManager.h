@@ -27,7 +27,7 @@ public:
 
     void evictPage(int index);
     void handlePageFault(std::shared_ptr<Process> p, int pageNum);
-    void writeToBackingStore(const std::string& pageId);
+    void writeToBackingStore(const std::string& pageId, std::shared_ptr<Process> ownerProcess, int frameIndex, const std::vector<uint16_t>& pageData);
     void logMemorySnapshot();
 
     int getPagedInCount() const;

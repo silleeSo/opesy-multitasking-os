@@ -52,6 +52,30 @@ public:
         cout << "Exiting...\n";
     }
 
+    // Add Console destructor
+    ~Console() {
+        // Ensure scheduler and process generation are stopped
+        // and wait for all processes to finish before main memory is deallocated.
+        if (scheduler_) {
+            scheduler_->stopProcessGeneration(); // Stop generating new processes
+            // It's crucial to stop the main scheduler loop too,
+            // or ensure it won't try to assign to soon-to-be-destroyed cores.
+            // scheduler_->stop(); // This calls core->stop() and joins schedulerThread_
+            // The scheduler_->stop() handles stopping cores and joining threads.
+
+            // Wait for all active processes to complete
+            std::cout << "\nWaiting for all processes to finish before exiting...\n";
+            scheduler_->waitUntilAllDone(); // Wait for all processes to finish
+            std::cout << "All processes finished. Shutting down scheduler.\n";
+            scheduler_->stop(); // This will join schedulerThread_ and processGenThread_
+        }
+
+        // Detach cpuTickThread if still joinable, as its global data doesn't require waiting
+        if (cpuTickThread.joinable()) {
+            cpuTickThread.detach(); // Detach it safely, it's operating on a global atomic.
+        }
+    }
+
 private:
     void printHeader() {
         cout << " ,-----. ,---.   ,-----. ,------. ,------. ,---.,--.   ,--.  " << endl;
@@ -68,8 +92,6 @@ private:
     void clearScreen() {
 #ifdef _WIN32
         system("cls");
-#else
-        system("clear");
 #endif
         printHeader();
     }
@@ -246,14 +268,9 @@ private:
                     if (isValidMemorySize(memorySize)) {
                         auto newProcess = make_shared<Process>(scheduler_->getNextProcessId(), processName, memoryManager_.get());
                         newProcess->setAllocatedMemory(memorySize);
-                        newProcess->genRandInst(cfg_.min_ins, cfg_.max_ins, memorySize);
+
                         scheduler_->submit(newProcess);
                         cout << "Process '" << processName << "' created and submitted." << endl;
-
-                        activeScreen_ = make_unique<Screen>(newProcess);
-                        activeScreen_->run();
-                        activeScreen_.reset();
-                        clearScreen();
                     }
                     else {
                         cout << "Invalid memory allocation: Size must be a power of 2 between 64 and 65536." << endl;
@@ -263,7 +280,6 @@ private:
                     cout << "Usage: screen -s <process_name> <process_memory_size>" << endl;
                 }
             }
-            // CHANGED: Dana - Refactored screen -c to set memory size but not allocate it.
             else if (trimmedLine.rfind("screen -c ", 0) == 0) {
                 std::stringstream ss(trimmedLine.substr(10));
                 std::string processName;
@@ -295,6 +311,9 @@ private:
                         else {
                             scheduler_->submit(newProcess);
                             cout << "Process '" << processName << "' created and submitted." << endl;
+                            // --- ADDED DELAY HERE ---
+                            std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give scheduler time
+                            // --- END ADDED DELAY ---
                         }
                     }
                     else {

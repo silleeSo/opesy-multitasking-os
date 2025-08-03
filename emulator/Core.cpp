@@ -4,6 +4,14 @@
 #include <iostream>
 #include <stdexcept> // For std::runtime_error
 
+using std::cout;
+using std::endl;
+using std::string;
+using std::to_string;
+using std::cerr;
+using std::exception;
+using std::thread;
+
 Core::Core(int id, Scheduler* scheduler, uint64_t delayPerExec)
     : id_(id), busy_(false), scheduler(scheduler), delayPerExec_(delayPerExec) {
 }
@@ -46,8 +54,27 @@ bool Core::tryAssign(std::shared_ptr<Process> p, uint64_t quantum) {
     return true;
 }
 
-// CHANGED: Dana - Wrapped instruction execution in a try-catch block to handle MAV exceptions
 void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
+    if (!p->hasBeenScheduled()) {
+        int memToAlloc = p->getAllocatedMemory();
+        if (scheduler->getMemoryManager().allocateMemory(p, memToAlloc)) {
+            p->setHasBeenScheduled(true);
+            // Only generate random instructions if the process's instruction list is currently empty.
+            // This prevents overwriting custom instructions from 'screen -c'.
+            if (p->getTotalInstructions() == 0) { // Check if no instructions were pre-loaded
+                p->genRandInst(scheduler->getMinIns(), scheduler->getMaxIns(), memToAlloc);
+            }
+        }
+        else {
+            // If memory allocation fails, the process cannot run.
+            // Requeue it and terminate this worker thread.
+            if (scheduler) scheduler->requeueProcess(p);
+            busy_ = false;
+            runningProcess = nullptr;
+            return;
+        }
+    }
+
     uint64_t executed = 0;
 
     while (busy_.load() && !p->isFinished() && executed < quantum) {
@@ -60,8 +87,8 @@ void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
             bool ran = p->runOneInstruction(id_);
             if (!ran) break;
         }
-        catch (const std::exception& e) { // Changed from std::runtime_error
-            std::cerr << "[Core-" << id_ << "] Process " << p->getPid() << " terminated with exception: " << e.what() << std::endl;
+        catch (const std::exception& e) {
+            std::cerr << "[Core-" << id_ << "] Process " << p->getName() << " terminated with exception: " << e.what() << std::endl;
             break;
         }
 

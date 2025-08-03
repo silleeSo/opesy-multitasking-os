@@ -45,7 +45,7 @@ private:
     std::vector<std::string> frameTable;
     std::vector<bool> validBits;
 
-    std::mutex memoryMutex_;
+    mutable std::mutex memoryMutex_;
 
     // Private helpers that do NOT lock the mutex
     void _clearFrame_unlocked(int index);

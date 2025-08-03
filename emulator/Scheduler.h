@@ -50,6 +50,10 @@ public:
     void updateCoreUtilization(int coreId, uint64_t ticksUsed);
     Core* getCore(int index) const;
 
+    MemoryManager& getMemoryManager() { return memoryManager_; }
+    uint64_t getMinIns() const { return minInstructions_; }
+    uint64_t getMaxIns() const { return maxInstructions_; }
+
 private:
     void schedulerLoop();
     void processGeneratorLoop();
