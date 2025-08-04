@@ -1,3 +1,0 @@
-Frames: 64
-Paged In: 52383
-Paged Out: 47062

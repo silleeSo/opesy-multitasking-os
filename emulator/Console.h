@@ -171,24 +171,36 @@ private:
         int usedMemBytes = usedFrames * frameSize;
         int freeMemBytes = totalMemBytes - usedMemBytes;
 
-        cout << right << setw(12) << totalMemBytes << "  Total memory" << endl;
-        cout << right << setw(12) << usedMemBytes << "  Used memory" << endl;
-        cout << right << setw(12) << freeMemBytes << "  Free memory" << endl;
-
         uint64_t totalTicks = globalCpuTicks.load();
         uint64_t activeTicks = scheduler_->getActiveCpuTicks();
         uint64_t idleTicks = totalTicks - activeTicks;
 
-        cout << right << setw(12) << idleTicks << "  Idle cpu ticks" << endl;
-        cout << right << setw(12) << activeTicks << "  Active cpu ticks" << endl;
-        cout << right << setw(12) << totalTicks << "  Total cpu ticks" << endl;
-
         int pagedIn = memoryManager_->getPagedInCount();
         int pagedOut = memoryManager_->getPagedOutCount();
 
-        cout << right << setw(12) << pagedIn << "  Num paged in" << endl;
-        cout << right << setw(12) << pagedOut << "  Num paged out" << endl;
+        cout << "\n+=======================================================================+\n";
+        cout << "|                         VIRTUAL MEMORY STATISTICS                     |\n";
+        cout << "+=======================================================================+\n";
+
+        cout << "+-------------------------------+---------------------------------------+\n";
+        cout << "| Metric                        | Value                                 |\n";
+        cout << "+-------------------------------+---------------------------------------+\n";
+
+        cout << "| Total Memory (bytes)          | " << right << setw(38) << totalMemBytes << "|\n";
+        cout << "| Used Memory (bytes)           | " << right << setw(38) << usedMemBytes << "|\n";
+        cout << "| Free Memory (bytes)           | " << right << setw(38) << freeMemBytes << "|\n";
+        cout << "| Frame Size (bytes)            | " << right << setw(38) << frameSize << "|\n";
+
+        cout << "| CPU Idle Ticks                | " << right << setw(38) << idleTicks << "|\n";
+        cout << "| CPU Active Ticks              | " << right << setw(38) << activeTicks << "|\n";
+        cout << "| CPU Total Ticks               | " << right << setw(38) << totalTicks << "|\n";
+
+        cout << "| Pages Paged In                | " << right << setw(38) << pagedIn << "|\n";
+        cout << "| Pages Paged Out               | " << right << setw(38) << pagedOut << "|\n";
+
+        cout << "+=======================================================================+\n\n";
     }
+
 
 
     void handleCommand(const string& line) {

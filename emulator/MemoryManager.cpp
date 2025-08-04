@@ -313,10 +313,14 @@ void MemoryManager::writeToBackingStore(const std::string& pageId, std::shared_p
     localtime_r(&now, &localtm);
 #endif
     char buf[64];
-    strftime(buf, sizeof(buf), "%m/%d/%Y, %I:%M:%S %p", &localtm);
+    strftime(buf, sizeof(buf), "%m/%d/%Y %I:%M:%S %p", &localtm);
 
-    out << "\n--- BACKING STORE SNAPSHOT (Timestamp: " << buf << ") ---\n";
-    out << "Evicted Page: " << pageId << "\n";
+    out << "\n+==========================================================================+\n";
+    std::string title = "BACKING STORE SNAPSHOT - " + std::string(buf);
+    int totalWidth = 74;
+    int padding = (totalWidth - static_cast<int>(title.length())) / 2;
+    out << "|" << std::string(padding, ' ') << title << std::string(totalWidth - padding - title.length(), ' ') << "|\n";
+    out << "+==========================================================================+\n\n";
 
     uint64_t ownerPid = -1;
     int pageNum = -1;
@@ -327,45 +331,66 @@ void MemoryManager::writeToBackingStore(const std::string& pageId, std::shared_p
         pageNum = std::stoi(pageId.substr(page_pos + 5));
     }
 
+    out << "Evicted Page        : " << pageId << "\n";
     if (ownerProcess) {
-        out << "Owner Process: " << ownerProcess->getName() << " (PID: " << ownerProcess->getPid() << ")\n";
+        out << "Owner Process       : " << ownerProcess->getName() << " (PID: " << ownerProcess->getPid() << ")\n";
     }
     else {
-        out << "Owner Process: Unknown (PID: " << ownerPid << ")\n"; // Fallback if process not found
+        out << "Owner Process       : Unknown (PID: " << ownerPid << ")\n";
     }
-    out << "Logical Page Number: " << pageNum << "\n";
-    out << "Evicted From Frame: " << frameIndex << "\n\n";
+    out << "Logical Page Number : " << pageNum << "\n";
+    out << "Evicted From Frame  : " << frameIndex << "\n\n";
 
-    out << "Page Data (Hex):\n";
+    // --- Page Data Table ---
+    out << "+----------------------------- Page Data (Hex) -----------------------------+\n";
+    out << "| Offset | Value  | Offset | Value  | Offset | Value  | Offset | Value     |\n";
+    out << "+--------+--------+--------+--------+--------+--------+--------+-----------+\n";
+
     out << std::hex << std::uppercase << std::setfill('0');
-    for (size_t i = 0; i < pageData.size(); ++i) {
-        out << "0x" << std::setw(2) << (pageNum * frameSize + i * 2) << ": " // Logical address offset
-            << "0x" << std::setw(4) << pageData[i] << " ";
-        if ((i + 1) % 8 == 0) out << "\n"; // Newline every 8 words
+    for (size_t i = 0; i < pageData.size(); i += 4) {
+        for (int j = 0; j < 4; ++j) {
+            size_t idx = i + j;
+            if (idx < pageData.size()) {
+                int logicalOffset = static_cast<int>(pageNum * frameSize + idx * 2);
+                out << "| 0x" << std::setw(2) << logicalOffset
+                    << " | 0x" << std::setw(4) << pageData[idx] << " ";
+            }
+            else {
+                out << "|        |        ";
+            }
+        }
+        out << "|\n";
     }
-    out << std::dec << std::endl; // Reset to decimal and endline
+    out << "+-------------------------------------------------------------------------+\n";
 
-    // If this is page 0 and it holds the symbol table
+    // --- Symbol Table ---
     if (pageNum == 0 && ownerProcess) {
-        out << "\nSymbol Table Contents:\n";
-        // Lock the process's symbol table to prevent race conditions during iteration
-        std::lock_guard<std::mutex> lock(ownerProcess->getPageTableMutex()); // Reusing pageTableMutex for symbol table
+        out << "\nSymbol Table (Page 0):\n";
+        out << "+----------+--------------+--------+\n";
+        out << "| Variable | Logical Addr | Value  |\n";
+        out << "+----------+--------------+--------+\n";
+
+        std::lock_guard<std::mutex> lock(ownerProcess->getPageTableMutex());
         const auto& symbolTable = ownerProcess->getSymbolTable();
         for (const auto& pair : symbolTable) {
             const std::string& varName = pair.first;
             const std::string& logicalAddr = pair.second;
-            // Read the value directly from the provided pageData if within this page,
-            // or rely on the read function (less efficient, but safer if data isn't guaranteed in pageData)
-            // For this enhanced log, we assume pageData contains the *entire* page.
             int varOffset = std::stoi(logicalAddr, nullptr, 16);
-            if (varOffset >= 0 && varOffset < pageData.size() * 2) { // Check if variable is within this pageData
-                uint16_t varValue = pageData[varOffset / 2]; // uint16_t values, so divide by 2 for word index
-                out << "  Variable '" << varName << "': " << logicalAddr << " -> 0x" << std::hex << std::setw(4) << varValue << std::dec << "\n";
+            uint16_t varValue = 0;
+            if (varOffset >= 0 && varOffset / 2 < static_cast<int>(pageData.size())) {
+                varValue = pageData[varOffset / 2];
             }
+
+            out << "| " << std::left << std::setw(8) << varName
+                << "| " << std::right << std::setw(12) << logicalAddr
+                << " | 0x" << std::setw(4) << varValue << " |\n";
         }
+        out << "+----------+--------------+--------+\n";
     }
-    out << "-------------------------------------------------------------------\n";
+
+    out << "===========================================================================\n";
 }
+
 
 void MemoryManager::logMemorySnapshot() {
     std::ofstream out("csopesy-vmstat.txt");
