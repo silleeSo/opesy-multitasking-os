@@ -59,15 +59,8 @@ void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
         int memToAlloc = p->getAllocatedMemory();
         if (scheduler->getMemoryManager().allocateMemory(p, memToAlloc)) {
             p->setHasBeenScheduled(true);
-            // Only generate random instructions if the process's instruction list is currently empty.
-            // This prevents overwriting custom instructions from 'screen -c'.
-            if (p->getTotalInstructions() == 0) { // Check if no instructions were pre-loaded
-                p->genRandInst(scheduler->getMinIns(), scheduler->getMaxIns(), memToAlloc);
-            }
         }
         else {
-            // If memory allocation fails, the process cannot run.
-            // Requeue it and terminate this worker thread.
             if (scheduler) scheduler->requeueProcess(p);
             busy_ = false;
             runningProcess = nullptr;
@@ -84,8 +77,14 @@ void Core::workerLoop(std::shared_ptr<Process> p, uint64_t quantum) {
         }
 
         try {
+            // CHANGE: Check the return value of runOneInstruction
             bool ran = p->runOneInstruction(id_);
-            if (!ran) break;
+            if (!ran) {
+                // CHANGE: If runOneInstruction returns false, it means the process is stalled.
+                // We should stop trying to run it and put it back in the queue.
+                if (scheduler) scheduler->requeueProcess(p);
+                break; // Break the while loop to stop the core
+            }
         }
         catch (const std::exception& e) {
             std::cerr << "[Core-" << id_ << "] Process " << p->getName() << " terminated with exception: " << e.what() << std::endl;

@@ -31,7 +31,7 @@ public:
     Process(uint64_t pid, std::string name, MemoryManager* memManager);
 
     // Public Methods
-    void execute(const Instruction& ins, int coreId);
+    bool execute(const Instruction& ins, int coreId);
     bool runOneInstruction(int coreId);
     void genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize);
     void loadInstructionsFromString(const std::string& instruction_str);

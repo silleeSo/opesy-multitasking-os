@@ -40,11 +40,24 @@ void Scheduler::start() {
 }
 
 void Scheduler::stop() {
-    for (const auto& core : cores_) core->stop();
+    // 1. First, set the flag that stops the main scheduler loop.
     running_ = false;
+
+    // 2. Stop process generation gracefully.
     processGenEnabled_ = false;
-    if (schedulerThread_.joinable()) schedulerThread_.join();
-    if (processGenThread_.joinable()) processGenThread_.join();
+    if (processGenThread_.joinable()) {
+        processGenThread_.join();
+    }
+
+    // 3. Stop all core worker threads by setting their flags.
+    for (const auto& core : cores_) {
+        core->stop();
+    }
+
+    // 4. Wait for the main scheduler thread to finish.
+    if (schedulerThread_.joinable()) {
+        schedulerThread_.join();
+    }
 }
 
 void Scheduler::submit(std::shared_ptr<Process> p) {
@@ -212,12 +225,18 @@ void Scheduler::processGeneratorLoop() {
             uint64_t pid = getNextProcessId();
             std::string name = "p" + std::to_string(pid);
 
+            // Get a valid memory size from the memory manager.
             int memToAlloc = memoryManager_.getRandomMemorySize();
             auto proc = std::make_shared<Process>(pid, name, &memoryManager_);
 
             proc->setAllocatedMemory(memToAlloc);
 
+            // Generate random instructions *before* submitting the process.
+            proc->genRandInst(minInstructions_, maxInstructions_, memToAlloc);
+
+            // Now, submit the fully-prepared process to the queue.
             submit(proc);
+
             lastProcessGenTick_ = now;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));

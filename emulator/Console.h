@@ -441,9 +441,14 @@ private:
                 cout << "Scheduler process generation started." << endl;
             }
             else if (trimmedLine == "scheduler-stop") {
-                scheduler_->stopProcessGeneration();
-                cout << "Scheduler process generation stopped." << endl;
-            }
+                if (scheduler_) {
+                    scheduler_->stop();
+                    cout << "Scheduler and all associated processes have been stopped." << endl;
+                }
+                else {
+                    cout << "Scheduler not running." << endl;
+                }
+}
             else if (trimmedLine == "report-util") {
                 generateReport();
             }

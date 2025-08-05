@@ -27,7 +27,7 @@ Process::Process(uint64_t pid, std::string name, MemoryManager* memManager)
 }
 
 // Executes a single instruction depending on opcode type
-void Process::execute(const Instruction& ins, int coreId) {
+bool Process::execute(const Instruction& ins, int coreId) {
     auto getValue = [this](const std::string& token) -> uint16_t {
         if (isdigit(token[0]) || (token[0] == '-' && token.size() > 1)) {
             try { return static_cast<uint16_t>(std::stoi(token)); }
@@ -50,163 +50,149 @@ void Process::execute(const Instruction& ins, int coreId) {
         return static_cast<uint16_t>(val);
         };
 
-    if (ins.opcode == 1 && ins.args.size() >= 1) { // DECLARE
-        const std::string& varName = ins.args[0];
+    try { // Use a try-catch block to handle exceptions from memory access
+        if (ins.opcode == 1 && ins.args.size() >= 1) { // DECLARE
+            const std::string& varName = ins.args[0];
 
-        // CHANGE: Check against allocatedMemoryBytes_ instead of fixed 64.
-        // Each variable is 2 bytes, so max variables is allocatedMemoryBytes_ / 2.
-        if (symbolTable_.size() * 2 < allocatedMemoryBytes_) {
-            std::string logicalAddress = memoryManager_->allocateVariable(shared_from_this(), varName);
-
-            if (!logicalAddress.empty()) {
-                if (ins.args.size() == 2) {
-                    uint16_t initialValue = clamp(getValue(ins.args[1]));
-                    if (memoryManager_) memoryManager_->write(logicalAddress, initialValue, shared_from_this());
-                }
-            }
-            else {
-                // This else block is now more likely to be hit and is correct.
-                std::lock_guard<std::mutex> lock(logsMutex_);
-                logs_.emplace_back(time(nullptr), "[Warning] Cannot declare '" + varName + "'. Memory allocation failed.");
-            }
-        }
-        else {
-            // CHANGE: This block will be executed when the process's memory is full.
-            std::lock_guard<std::mutex> lock(logsMutex_);
-            logs_.emplace_back(time(nullptr), "[Warning] Process memory full. DECLARE for '" + varName + "' ignored.");
-        }
-    }
-    else if (ins.opcode == 2 && ins.args.size() == 3) { // ADD
-        const std::string& destVar = ins.args[0];
-        uint16_t a = getValue(ins.args[1]);
-        uint16_t b = getValue(ins.args[2]);
-        if (symbolTable_.count(destVar) && memoryManager_) {
-            const std::string& destAddr = symbolTable_.at(destVar);
-            memoryManager_->write(destAddr, clamp(static_cast<int64_t>(a) + static_cast<int64_t>(b)), shared_from_this());
-        }
-    }
-    else if (ins.opcode == 3 && ins.args.size() == 3) { // SUB
-        const std::string& destVar = ins.args[0];
-        uint16_t a = getValue(ins.args[1]);
-        uint16_t b = getValue(ins.args[2]);
-        if (symbolTable_.count(destVar) && memoryManager_) {
-            const std::string& destAddr = symbolTable_.at(destVar);
-            memoryManager_->write(destAddr, clamp(static_cast<int64_t>(a) - static_cast<int64_t>(b)), shared_from_this());
-        }
-    }
-    else if (ins.opcode == 4) { // PRINT
-        std::string output_message;
-
-        auto stripAndTrim = [](std::string s) {
-            size_t first = s.find_first_not_of(" \t\n\r");
-            if (std::string::npos == first) s.clear();
-            else s = s.substr(first, (s.find_last_not_of(" \t\n\r") - first + 1));
-
-            bool hasLeadingBackslashQuote = (s.length() >= 2 && s.front() == '\\' && s[1] == '"');
-            bool hasTrailingBackslashQuote = (s.length() >= 2 && s.back() == '"' && s[s.length() - 2] == '\\');
-
-
-            if (!s.empty() && s.length() >= 2 &&
-                ((s.front() == '"' && s.back() == '"') || (hasLeadingBackslashQuote && hasTrailingBackslashQuote))) {
-                std::string stripped = s.substr(1, s.length() - 2);
-
-                if (hasLeadingBackslashQuote) {
-                    stripped = stripped.substr(1); 
-                }
-                if (hasTrailingBackslashQuote) {
-                    
-                    if (!stripped.empty() && stripped.back() == '\\') { 
-                        stripped.pop_back();
-                    }
-                }
-                return stripped;
-            }
-            return s;
-            };
-
-        if (!ins.args.empty()) {
-            std::string full_print_argument = ins.args[0];
-            std::stringstream arg_splitter(full_print_argument);
-            std::string part;
-
-            while (std::getline(arg_splitter, part, '+')) {
-                std::string processed_part = stripAndTrim(part); 
-
-                if (!processed_part.empty()) {
-                    if (symbolTable_.count(processed_part)) {
-                        uint16_t varValue = getValue(processed_part);
-                        output_message += std::to_string(varValue);
-                    }
-                    else {
-                        output_message += processed_part;
-                    }
-                }
-            }
-        }
-        std::lock_guard<std::mutex> lock(logsMutex_);
-        logs_.emplace_back(time(nullptr), output_message);
-    }
-    else if (ins.opcode == 5 && ins.args.size() == 1) { // SLEEP
-        uint8_t ticks = static_cast<uint8_t>(getValue(ins.args[0]));
-        isSleeping_ = true;
-        sleepTargetTick_ = globalCpuTicks.load() + ticks;
-    }
-    else if (ins.opcode == 6 && ins.args.size() == 1) { 
-        uint16_t repeatCount = getValue(ins.args[0]);
-        if (repeatCount > 1000) repeatCount = 1000;
-        if (loopStack.size() >= 3) return;
-
-        loopStack.push_back({ insCount_, repeatCount });
-    }
-    else if (ins.opcode == 7) { // END
-        if (!loopStack.empty()) {
-            LoopState& currentLoop = loopStack.back();
-            currentLoop.repeats--;
-            if (currentLoop.repeats > 0) {
-                insCount_ = currentLoop.startIns;
-            }
-            else {
-                loopStack.pop_back();
-            }
-        }
-        else {
-            std::lock_guard<std::mutex> lock(logsMutex_);
-            logs_.emplace_back(time(nullptr), "[Error] END without matching FOR!");
-        }
-    }
-    else if (ins.opcode == 8 && ins.args.size() == 2) { // READ
-        const std::string& varName = ins.args[0];
-        const std::string& sourceAddress = ins.args[1];
-
-        if (!symbolTable_.count(varName)) {
-            // CHANGE: Check against allocatedMemoryBytes_ instead of fixed 64.
             if (symbolTable_.size() * 2 < allocatedMemoryBytes_) {
                 std::string logicalAddress = memoryManager_->allocateVariable(shared_from_this(), varName);
-                if (logicalAddress.empty()) {
+
+                if (!logicalAddress.empty()) {
+                    if (ins.args.size() == 2) {
+                        uint16_t initialValue = clamp(getValue(ins.args[1]));
+                        if (memoryManager_) memoryManager_->write(logicalAddress, initialValue, shared_from_this());
+                    }
+                }
+                else {
                     std::lock_guard<std::mutex> lock(logsMutex_);
                     logs_.emplace_back(time(nullptr), "[Warning] Cannot declare '" + varName + "'. Memory allocation failed.");
-                    return;
                 }
             }
             else {
                 std::lock_guard<std::mutex> lock(logsMutex_);
-                logs_.emplace_back(time(nullptr), "[Warning] Process memory full. READ for '" + varName + "' ignored.");
-                return;
+                logs_.emplace_back(time(nullptr), "[Warning] Process memory full. DECLARE for '" + varName + "' ignored.");
+            }
+        }
+        else if (ins.opcode == 2 && ins.args.size() == 3) { // ADD
+            const std::string& destVar = ins.args[0];
+            uint16_t a = getValue(ins.args[1]);
+            uint16_t b = getValue(ins.args[2]);
+            if (symbolTable_.count(destVar) && memoryManager_) {
+                const std::string& destAddr = symbolTable_.at(destVar);
+                memoryManager_->write(destAddr, clamp(static_cast<int64_t>(a) + static_cast<int64_t>(b)), shared_from_this());
+            }
+        }
+        else if (ins.opcode == 3 && ins.args.size() == 3) { // SUB
+            const std::string& destVar = ins.args[0];
+            uint16_t a = getValue(ins.args[1]);
+            uint16_t b = getValue(ins.args[2]);
+            if (symbolTable_.count(destVar) && memoryManager_) {
+                const std::string& destAddr = symbolTable_.at(destVar);
+                memoryManager_->write(destAddr, clamp(static_cast<int64_t>(a) - static_cast<int64_t>(b)), shared_from_this());
+            }
+        }
+        else if (ins.opcode == 4) { // PRINT
+            std::string output_message;
+            auto stripAndTrim = [](std::string s) {
+                size_t first = s.find_first_not_of(" \t\n\r");
+                if (std::string::npos == first) s.clear();
+                else s = s.substr(first, (s.find_last_not_of(" \t\n\r") - first + 1));
+                if (s.length() >= 2 && s.front() == '"' && s.back() == '"') {
+                    return s.substr(1, s.length() - 2);
+                }
+                return s;
+                };
+
+            if (!ins.args.empty()) {
+                std::string full_print_argument = ins.args[0];
+                std::stringstream arg_splitter(full_print_argument);
+                std::string part;
+                while (std::getline(arg_splitter, part, '+')) {
+                    std::string processed_part = stripAndTrim(part);
+                    if (!processed_part.empty()) {
+                        if (symbolTable_.count(processed_part)) {
+                            uint16_t varValue = getValue(processed_part);
+                            output_message += std::to_string(varValue);
+                        }
+                        else {
+                            output_message += processed_part;
+                        }
+                    }
+                }
+            }
+            std::lock_guard<std::mutex> lock(logsMutex_);
+            logs_.emplace_back(time(nullptr), output_message);
+        }
+        else if (ins.opcode == 5 && ins.args.size() == 1) { // SLEEP
+            uint8_t ticks = static_cast<uint8_t>(getValue(ins.args[0]));
+            isSleeping_ = true;
+            sleepTargetTick_ = globalCpuTicks.load() + ticks;
+        }
+        else if (ins.opcode == 6 && ins.args.size() == 1) {
+            uint16_t repeatCount = getValue(ins.args[0]);
+            if (repeatCount > 1000) repeatCount = 1000;
+            if (loopStack.size() >= 3) return false; // Fail if nesting too deep
+
+            loopStack.push_back({ insCount_, repeatCount });
+        }
+        else if (ins.opcode == 7) { // END
+            if (!loopStack.empty()) {
+                LoopState& currentLoop = loopStack.back();
+                currentLoop.repeats--;
+                if (currentLoop.repeats > 0) {
+                    insCount_ = currentLoop.startIns;
+                }
+                else {
+                    loopStack.pop_back();
+                }
+            }
+            else {
+                std::lock_guard<std::mutex> lock(logsMutex_);
+                logs_.emplace_back(time(nullptr), "[Error] END without matching FOR!");
+            }
+        }
+        else if (ins.opcode == 8 && ins.args.size() == 2) { // READ
+            const std::string& varName = ins.args[0];
+            const std::string& sourceAddress = ins.args[1];
+
+            if (!symbolTable_.count(varName)) {
+                if (symbolTable_.size() * 2 < allocatedMemoryBytes_) {
+                    std::string logicalAddress = memoryManager_->allocateVariable(shared_from_this(), varName);
+                    if (logicalAddress.empty()) {
+                        std::lock_guard<std::mutex> lock(logsMutex_);
+                        logs_.emplace_back(time(nullptr), "[Warning] Cannot declare '" + varName + "'. Memory allocation failed.");
+                        return true; // Still return true if the instruction didn't crash
+                    }
+                }
+                else {
+                    std::lock_guard<std::mutex> lock(logsMutex_);
+                    logs_.emplace_back(time(nullptr), "[Warning] Process memory full. READ for '" + varName + "' ignored.");
+                    return true;
+                }
+            }
+            if (memoryManager_) {
+                uint16_t value = memoryManager_->read(sourceAddress, shared_from_this());
+                const std::string& destAddress = symbolTable_.at(varName);
+                memoryManager_->write(destAddress, value, shared_from_this());
+            }
+        }
+        else if (ins.opcode == 9 && ins.args.size() == 2) { // WRITE
+            const std::string& destAddress = ins.args[0];
+            uint16_t value = getValue(ins.args[1]);
+            if (memoryManager_) {
+                memoryManager_->write(destAddress, value, shared_from_this());
             }
         }
 
-        if (memoryManager_) {
-            uint16_t value = memoryManager_->read(sourceAddress, shared_from_this());
-            const std::string& destAddress = symbolTable_.at(varName);
-            memoryManager_->write(destAddress, value, shared_from_this());
-        }
+        // Return true on successful execution
+        return true;
     }
-    else if (ins.opcode == 9 && ins.args.size() == 2) { // WRITE
-        const std::string& destAddress = ins.args[0];
-        uint16_t value = getValue(ins.args[1]);
-        if (memoryManager_) {
-            memoryManager_->write(destAddress, value, shared_from_this());
-        }
+    catch (const std::runtime_error& e) {
+        // If an exception is caught from memory access, don't crash the program.
+        // Instead, handle it gracefully here and return false.
+        std::lock_guard<std::mutex> lock(logsMutex_);
+        logs_.emplace_back(time(nullptr), "[Error] Runtime error during execution: " + std::string(e.what()));
+        return false;
     }
 }
 
@@ -298,11 +284,11 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
     std::uniform_int_distribution<uint64_t> distInstructions(min_ins, max_ins);
     uint64_t totalInstructions = distInstructions(gen);
 
-    // CHANGE: Adjust the variable pool based on memory size.
-    // An 8-byte process can only hold 4 variables (8/2).
     std::vector<std::string> varPool = { "x", "y", "z", "a", "b", "c" };
     if (memorySize <= 8) {
-        varPool.resize(memorySize / 2); // Restrict to a maximum of 4 variables for an 8-byte process.
+        // Ensure varPool is not empty if memorySize is very small.
+        // It must have at least one variable to prevent crashes.
+        varPool.resize(std::max(1, memorySize / 2));
     }
     std::uniform_int_distribution<int> distVar(0, static_cast<int>(varPool.size()) - 1);
     std::uniform_int_distribution<int> distValue(0, 1000);
@@ -454,10 +440,13 @@ bool Process::runOneInstruction(int coreId) {
     }
 
     const Instruction& currentIns = insList[insCount_];
-
     uint64_t instructionIndexBeforeExecution = insCount_;
 
-    execute(currentIns, coreId);
+    // If it returns false, the instruction stalled on a page fault.
+    bool success = execute(currentIns, coreId);
+    if (!success) {
+        return false; // Signal to the Core that the process is stalled.
+    }
 
     if (insCount_ == instructionIndexBeforeExecution) {
         insCount_++;

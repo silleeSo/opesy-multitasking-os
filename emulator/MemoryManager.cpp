@@ -186,7 +186,7 @@ std::pair<int, int> MemoryManager::translate(std::string logicalAddr, std::share
     return { frameIndex, offset };
 }
 
-void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
+bool MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
     std::stringstream ss_pageId;
     ss_pageId << "p" << p->getPid() << "_page" << pageNum;
     std::string pageId = ss_pageId.str();
@@ -225,7 +225,9 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
         }
 
         ++pagedInCount;
+        return true; // Page fault was successfully handled.
     }
+    return false; // Return false to indicate failure.
 }
 
 void MemoryManager::preloadPages(std::shared_ptr<Process> process, int startPage, int numPages) {
