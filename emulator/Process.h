@@ -2,28 +2,24 @@
 #include <string>
 #include <vector>
 #include <cstdint>
-#include <memory> // For std::enable_shared_from_this
+#include <memory> 
 #include <unordered_map>
 #include <utility>
 #include <ctime>
 #include <mutex>
 
-// Forward declaration to avoid circular dependency
 class MemoryManager;
 
-// Represents a single instruction for a process
 struct Instruction {
     uint8_t opcode = 0;
     std::vector<std::string> args;
 };
 
-// Represents a state for a FOR loop
 struct LoopState {
     uint64_t startIns;
     uint16_t repeats;
 };
 
-// The Process class now correctly inherits from std::enable_shared_from_this
 class Process : public std::enable_shared_from_this<Process> {
 public:
     enum class TerminationReason {
@@ -32,7 +28,6 @@ public:
         MEMORY_VIOLATION
     };
 
-    // Constructor
     Process(uint64_t pid, std::string name, MemoryManager* memManager);
 
     // Public Methods

@@ -35,7 +35,6 @@ public:
 
     void deallocate(uint64_t  pid);
 
-    // CHANGED: Dana - Added a function to preload a specified number of pages for a process into memory.
     void preloadPages(std::shared_ptr<Process> p, int startPage, int numPages);
     int getRandomMemorySize() const;
 

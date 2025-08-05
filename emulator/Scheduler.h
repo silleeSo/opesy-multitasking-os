@@ -44,7 +44,6 @@ public:
     size_t getCoresUsed() const;
     size_t getCoresAvailable() const;
 
-    // CHANGED: Dana - Added a getter for total active CPU ticks to support the vmstat command.
     uint64_t getActiveCpuTicks() const;
 
     void updateCoreUtilization(int coreId, uint64_t ticksUsed);

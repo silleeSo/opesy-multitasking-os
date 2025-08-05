@@ -99,32 +99,25 @@ void Process::execute(const Instruction& ins, int coreId) {
         std::string output_message;
 
         auto stripAndTrim = [](std::string s) {
-            // Trim leading/trailing whitespace first
             size_t first = s.find_first_not_of(" \t\n\r");
             if (std::string::npos == first) s.clear();
             else s = s.substr(first, (s.find_last_not_of(" \t\n\r") - first + 1));
 
-            // NEW: Handle potential leading backslash before a quote
             bool hasLeadingBackslashQuote = (s.length() >= 2 && s.front() == '\\' && s[1] == '"');
-            // NEW: Handle potential trailing backslash before a quote (at end of string)
             bool hasTrailingBackslashQuote = (s.length() >= 2 && s.back() == '"' && s[s.length() - 2] == '\\');
 
 
-            // Now, check and remove actual quotes (possibly escaped by backslashes)
             if (!s.empty() && s.length() >= 2 &&
-                ((s.front() == '"' && s.back() == '"') || (hasLeadingBackslashQuote && hasTrailingBackslashQuote))) { // Modified condition
+                ((s.front() == '"' && s.back() == '"') || (hasLeadingBackslashQuote && hasTrailingBackslashQuote))) {
                 std::string stripped = s.substr(1, s.length() - 2);
 
-                // If it had leading/trailing backslashes before quotes, remove them from the stripped string
                 if (hasLeadingBackslashQuote) {
-                    stripped = stripped.substr(1); // Remove the leading backslash
+                    stripped = stripped.substr(1); 
                 }
                 if (hasTrailingBackslashQuote) {
-                    // This is more complex. If the original string was \"abc\"", then stripped is "abc\"".
-                    // We need to remove the last backslash.
-                    if (!stripped.empty() && stripped.back() == '\\') { // This logic is tricky, let's simplify.
-                        // For now, assume if hasTrailingBackslashQuote, then the last char of 'stripped' is a backslash that needs to go.
-                        stripped.pop_back(); // Remove the trailing backslash
+                    
+                    if (!stripped.empty() && stripped.back() == '\\') { 
+                        stripped.pop_back();
                     }
                 }
                 return stripped;
@@ -138,20 +131,14 @@ void Process::execute(const Instruction& ins, int coreId) {
             std::string part;
 
             while (std::getline(arg_splitter, part, '+')) {
-                std::string processed_part = stripAndTrim(part); // Use the helper
+                std::string processed_part = stripAndTrim(part); 
 
                 if (!processed_part.empty()) {
-                    // Now, processed_part will have quotes stripped if it was a literal
-                    // So, if it contained quotes, it's now just the content.
-                    // If it was a variable, it's just the variable name.
-
-                    // Check if it's a variable
                     if (symbolTable_.count(processed_part)) {
-                        uint16_t varValue = getValue(processed_part); // Use processed_part for getValue
+                        uint16_t varValue = getValue(processed_part);
                         output_message += std::to_string(varValue);
                     }
                     else {
-                        // It must be a literal (quotes already stripped) or some other direct text
                         output_message += processed_part;
                     }
                 }
@@ -160,20 +147,16 @@ void Process::execute(const Instruction& ins, int coreId) {
         std::lock_guard<std::mutex> lock(logsMutex_);
         logs_.emplace_back(time(nullptr), output_message);
     }
-    // --- FIX: The SLEEP handler is now simplified ---
     else if (ins.opcode == 5 && ins.args.size() == 1) { // SLEEP
         uint8_t ticks = static_cast<uint8_t>(getValue(ins.args[0]));
         isSleeping_ = true;
         sleepTargetTick_ = globalCpuTicks.load() + ticks;
-        // The insCount_++ is REMOVED from here.
     }
-    else if (ins.opcode == 6 && ins.args.size() == 1) { // FOR
+    else if (ins.opcode == 6 && ins.args.size() == 1) { 
         uint16_t repeatCount = getValue(ins.args[0]);
         if (repeatCount > 1000) repeatCount = 1000;
-        if (loopStack.size() >= 3) return; // Prevent deep nesting
+        if (loopStack.size() >= 3) return;
 
-        // --- FIX: Save the CURRENT instruction counter as the loop's start. ---
-        // runOneInstruction has already advanced it to the first instruction of the loop body.
         loopStack.push_back({ insCount_, repeatCount });
     }
     else if (ins.opcode == 7) { // END
@@ -181,7 +164,6 @@ void Process::execute(const Instruction& ins, int coreId) {
             LoopState& currentLoop = loopStack.back();
             currentLoop.repeats--;
             if (currentLoop.repeats > 0) {
-                // This jump logic is now correct because FOR saves the right index.
                 insCount_ = currentLoop.startIns;
             }
             else {
@@ -197,30 +179,25 @@ void Process::execute(const Instruction& ins, int coreId) {
         const std::string& varName = ins.args[0];
         const std::string& sourceAddress = ins.args[1];
 
-        // Ensure the variable exists in the symbol table, allocate if not.
-        // Similar logic to DECLARE, but for READ.
         if (!symbolTable_.count(varName)) {
             if (symbolTable_.size() * 2 < 64) {
                 std::string logicalAddress = memoryManager_->allocateVariable(shared_from_this(), varName);
                 if (logicalAddress.empty()) {
-                    // Failed to allocate variable (symbol table full), log warning and return
                     std::lock_guard<std::mutex> lock(logsMutex_);
                     logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. READ for '" + varName + "' ignored.");
-                    return; // Stop execution of this instruction
+                    return;
                 }
             }
             else {
-                // Symbol table full, cannot create variable for READ
                 std::lock_guard<std::mutex> lock(logsMutex_);
                 logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. READ for '" + varName + "' ignored.");
-                return; // Stop execution of this instruction
+                return; 
             }
         }
 
-        // Now that the variable is guaranteed to be in symbolTable_
         if (memoryManager_) {
             uint16_t value = memoryManager_->read(sourceAddress, shared_from_this());
-            const std::string& destAddress = symbolTable_.at(varName); // Now 'varName' is guaranteed to be in symbolTable_
+            const std::string& destAddress = symbolTable_.at(varName); 
             memoryManager_->write(destAddress, value, shared_from_this());
         }
     }
@@ -233,7 +210,6 @@ void Process::execute(const Instruction& ins, int coreId) {
     }
 }
 
-// Sets the reason for process termination, especially for memory violation
 void Process::setTerminationReason(TerminationReason reason, const std::string& addr) {
     if (terminationReason_ == TerminationReason::RUNNING) {
         terminationReason_ = reason;
@@ -258,37 +234,34 @@ void Process::loadInstructionsFromString(const std::string& instruction_str) {
     };
 
     while (std::getline(ss, segment, ';')) {
-        segment.erase(0, segment.find_first_not_of(" \t\n\r")); // Trim leading whitespace
-        segment.erase(segment.find_last_not_of(" \t\n\r") + 1); // Trim trailing whitespace
+        segment.erase(0, segment.find_first_not_of(" \t\n\r")); 
+        segment.erase(segment.find_last_not_of(" \t\n\r") + 1); 
         if (segment.empty()) continue;
 
-        // NEW: Find the end of the opcode (first space or first parenthesis)
-        size_t opcode_end = segment.find_first_of(" ("); // Find first space or opening parenthesis
+        size_t opcode_end = segment.find_first_of(" ("); 
         std::string first_word;
-        std::string remainder_of_segment; // What's left after extracting opcode
+        std::string remainder_of_segment; 
 
-        if (opcode_end == std::string::npos) { // No space or parenthesis found, assume whole segment is opcode
+        if (opcode_end == std::string::npos) { 
             first_word = segment;
             remainder_of_segment = "";
         }
         else {
             first_word = segment.substr(0, opcode_end);
-            remainder_of_segment = segment.substr(opcode_end); // Keep the rest including the delimiter
+            remainder_of_segment = segment.substr(opcode_end); 
         }
 
-        first_word.erase(0, first_word.find_first_not_of(" \t\n\r")); // Re-trim first_word in case it ended up with leading spaces
-        first_word.erase(first_word.find_last_not_of(" \t\n\r") + 1); // Re-trim first_word
+        first_word.erase(0, first_word.find_first_not_of(" \t\n\r")); 
+        first_word.erase(first_word.find_last_not_of(" \t\n\r") + 1); 
 
         if (opcodeMap.count(first_word)) {
             Instruction inst;
             inst.opcode = opcodeMap[first_word];
 
-            std::string args_portion = remainder_of_segment; // Now args_portion gets the remainder directly
-            args_portion.erase(0, args_portion.find_first_not_of(" \t")); // Trim leading whitespace from args portion
+            std::string args_portion = remainder_of_segment; 
+            args_portion.erase(0, args_portion.find_first_not_of(" \t")); 
 
-            // Special handling for PRINT opcode arguments
             if (inst.opcode == 4) { // PRINT
-                // Now, args_portion should reliably be like "(\"...\")" or "(\"...\")"
                 size_t open_paren = args_portion.find('(');
                 size_t close_paren = args_portion.rfind(')');
 
@@ -297,11 +270,10 @@ void Process::loadInstructionsFromString(const std::string& instruction_str) {
                     inst.args.push_back(arg_content);
                 }
                 else {
-                    // This fallback should ideally not be hit if PRINT syntax is correct
                     inst.args.push_back(args_portion);
                 }
             }
-            else { // General parsing for other opcodes
+            else { 
                 std::stringstream args_parser(args_portion);
                 std::string arg;
                 while (args_parser >> arg) {
@@ -315,7 +287,6 @@ void Process::loadInstructionsFromString(const std::string& instruction_str) {
     }
 }
 
-// This is the final, correct version of this function.
 void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
     insList.clear();
     logs_.clear();
@@ -341,7 +312,7 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
 
     // Create separate opcode pools based on whether general memory is available
     std::vector<int> opcode_pool_full = { 1, 2, 3, 4, 5, 8, 9 };
-    std::vector<int> opcode_pool_no_mem = { 1, 2, 3, 4, 5 }; // No READ/WRITE if no general memory
+    std::vector<int> opcode_pool_no_mem = { 1, 2, 3, 4, 5 };
 
     bool canUseGeneralMemory = (generalMemorySize > 0);
     const auto& current_opcode_pool = canUseGeneralMemory ? opcode_pool_full : opcode_pool_no_mem;
@@ -474,12 +445,10 @@ bool Process::runOneInstruction(int coreId) {
 
     const Instruction& currentIns = insList[insCount_];
 
-    // --- FIX: Store the counter's state BEFORE execution ---
     uint64_t instructionIndexBeforeExecution = insCount_;
 
     execute(currentIns, coreId);
 
-    // --- FIX: Only increment the counter if the instruction was not a jump (like END) ---
     if (insCount_ == instructionIndexBeforeExecution) {
         insCount_++;
     }
@@ -491,7 +460,6 @@ bool Process::runOneInstruction(int coreId) {
     return true;
 }
 
-// Returns the string representation of the current state of the process, similar to process-smi
 std::string Process::smi() const {
     std::stringstream ss;
     ss << "Process name: " << name_ << "\n";

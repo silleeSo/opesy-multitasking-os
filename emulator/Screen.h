@@ -7,12 +7,7 @@
 #include <unordered_map> // For variables
 #include "Process.h"
 #include "GlobalState.h" // For globalCpuTicks in process-smi display
-// Removed using namespace std; to be explicit
-/*
-    SCREEN OVERVIEW
-    - wraps process basically
-    - has the ui features of a process
-*/
+
 
 class Screen {
 public:

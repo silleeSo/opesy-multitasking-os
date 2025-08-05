@@ -47,7 +47,6 @@ private:
 
     mutable std::mutex memoryMutex_;
 
-    // Private helpers that do NOT lock the mutex
     void _clearFrame_unlocked(int index);
     void _writeMemory_unlocked(const std::string& address, uint16_t value);
     uint16_t _readMemory_unlocked(const std::string& address) const;

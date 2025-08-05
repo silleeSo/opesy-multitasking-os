@@ -107,9 +107,9 @@ std::vector<std::shared_ptr<Process>> Scheduler::getFinishedProcesses() const {
     std::vector<std::shared_ptr<Process>> temp_copy;
     {
         std::lock_guard<std::mutex> lock(finishedProcessesMutex_);
-        temp_copy = finishedProcesses_; // Copy happens inside the lock's scope.
-    } // Mutex is released here.
-    return temp_copy; // Return the copy after the lock is released.
+        temp_copy = finishedProcesses_; 
+    } 
+    return temp_copy; 
 }
 
 std::vector<std::shared_ptr<Process>> Scheduler::getSleepingProcesses() const {
@@ -158,7 +158,6 @@ Core* Scheduler::getCore(int index) const {
 
 void Scheduler::schedulerLoop() {
     while (running_.load()) {
-        // --- Part 1: Wake up any sleeping processes ---
         {
             std::lock_guard<std::mutex> lock(sleepingProcessesMutex_);
             auto now = globalCpuTicks.load();
@@ -175,13 +174,10 @@ void Scheduler::schedulerLoop() {
             }
         }
 
-        // --- Part 2: Try to assign work to all available cores ---
         for (auto& core : cores_) {
             if (!core->isBusy()) {
                 std::shared_ptr<Process> p;
                 if (readyQueue_.try_pop(p)) {
-                    // --- FIX: The admission control logic has been removed from the scheduler ---
-                    // This responsibility is now handled by the Core's workerLoop.
 
                     // Assign the process directly to the core
                     uint64_t quantum = (schedulerType_ == "rr") ? quantumCycles_ : UINT64_MAX;
@@ -190,7 +186,6 @@ void Scheduler::schedulerLoop() {
             }
         }
 
-        // --- Part 3: Clean up any finished processes ---
         for (auto& core : cores_) {
             auto p = core->getRunningProcess();
             if (p && p->isFinished()) {
@@ -210,7 +205,6 @@ void Scheduler::schedulerLoop() {
     }
 }
 
-// CHANGED: Dana - Removed memory allocation from process generation loop.
 void Scheduler::processGeneratorLoop() {
     while (processGenEnabled_.load()) {
         uint64_t now = globalCpuTicks.load();
@@ -221,12 +215,7 @@ void Scheduler::processGeneratorLoop() {
             int memToAlloc = memoryManager_.getRandomMemorySize();
             auto proc = std::make_shared<Process>(pid, name, &memoryManager_);
 
-            // Set the desired memory size on the process object.
             proc->setAllocatedMemory(memToAlloc);
-
-            // --- FIX: REMOVE THIS LINE ---
-            // The main schedulerLoop will now handle instruction generation after allocation.
-            // proc->genRandInst(minInstructions_, maxInstructions_, memToAlloc);
 
             submit(proc);
             lastProcessGenTick_ = now;
@@ -242,9 +231,6 @@ std::shared_ptr<Process> Scheduler::findProcessById(uint64_t pid) const {
         if (p && p->getPid() == pid) return p;
     }
 
-    // --- FIX: REMOVED the entire block that unsafely drains and refills the ready queue ---
-    // A process in the ready queue is not in a frame, so it cannot be a victim for eviction.
-    // Searching it is both logically incorrect and the source of a race condition.
 
     // Search sleeping processes
     {

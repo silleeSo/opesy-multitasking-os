@@ -20,23 +20,17 @@ void MemoryManager::setScheduler(Scheduler* sched) {
 bool MemoryManager::allocateMemory(std::shared_ptr<Process> process, int requestedBytes) {
     int pages_required = (requestedBytes + frameSize - 1) / frameSize;
 
-    // --- REMOVE THIS BLOCK (Admission Control for Physical Frames) ---
-    // if (pages_required > memory.getFreeFrames()) {
-    //     return false;
-    // }
-    // --- END REMOVAL ---
-
     process->setAllocatedMemory(requestedBytes);
 
     {
         std::lock_guard<std::mutex> lock(process->getPageTableMutex());
         for (int i = 0; i < pages_required; ++i) {
             process->getPageTable()[i] = -1;
-            process->getValidBits()[i] = false; // Initially all pages are in backing store
+            process->getValidBits()[i] = false; 
         }
     }
 
-    // Lock the backing store mutex to create the pages (conceptually)
+    // Lock the backing store mutex to create the pages
     {
         std::lock_guard<std::mutex> lock(backingStoreMutex_);
         for (int i = 0; i < pages_required; ++i) {
@@ -52,7 +46,6 @@ bool MemoryManager::allocateMemory(std::shared_ptr<Process> process, int request
 }
 
 int MemoryManager::getRandomMemorySize() const {
-    // 1. Create a list of all valid power-of-2 sizes in the configured range.
     std::vector<int> powerOfTwoSizes;
     for (int size = minMemPerProc; size <= maxMemPerProc; size *= 2) {
         if (size > 0) { // Ensure we don't loop infinitely if minMemPerProc is 0
@@ -65,12 +58,11 @@ int MemoryManager::getRandomMemorySize() const {
         return minMemPerProc;
     }
 
-    // 2. Pick a random INDEX from the list of valid sizes.
+   
     static std::random_device rd;
     static std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, static_cast<int>(powerOfTwoSizes.size()) - 1);
 
-    // 3. Return the valid power-of-2 size at that index.
     return powerOfTwoSizes[dist(gen)];
 }
 
@@ -209,7 +201,6 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
     }
 
     if (frameIndex != -1) {
-        // --- FIX: Use a stringstream to correctly format the base address as hexadecimal ---
         std::stringstream ss_baseAddr;
         ss_baseAddr << "0x" << std::hex << (frameIndex * frameSize);
         std::string baseAddr = ss_baseAddr.str();
@@ -220,8 +211,6 @@ void MemoryManager::handlePageFault(std::shared_ptr<Process> p, int pageNum) {
                 memory.loadPageToFrame(frameIndex, backingStore_[pageId], baseAddr);
             }
         }
-
-        // Lock the page table before updating it
         {
             std::lock_guard<std::mutex> lock(p->getPageTableMutex());
             memory.setFrame(frameIndex, pageId);
@@ -254,7 +243,7 @@ void MemoryManager::evictPage(int index) {
 
     uint64_t ownerPid = -1;
     int pageNum = -1;
-    std::shared_ptr<Process> ownerProcess = nullptr; // <--- Added
+    std::shared_ptr<Process> ownerProcess = nullptr; 
     size_t p_pos = pageId.find('p');
     size_t page_pos = pageId.find("_page");
     if (p_pos != std::string::npos && page_pos != std::string::npos) {
@@ -263,7 +252,7 @@ void MemoryManager::evictPage(int index) {
     }
 
     if (ownerPid != -1 && pageNum != -1 && scheduler_) {
-        ownerProcess = scheduler_->findProcessById(ownerPid); // <--- Get owner process
+        ownerProcess = scheduler_->findProcessById(ownerPid); 
         if (ownerProcess) {
             std::lock_guard<std::mutex> lock(ownerProcess->getPageTableMutex());
             ownerProcess->getValidBits()[pageNum] = false;
@@ -281,14 +270,13 @@ void MemoryManager::evictPage(int index) {
         backingStore_[pageId] = data;
     }
 
-    // Pass all relevant information to the logging function
-    writeToBackingStore(pageId, ownerProcess, index, data); // <--- Modified call
+    writeToBackingStore(pageId, ownerProcess, index, data); 
     memory.clearFrame(index);
     ++pagedOutCount;
 }
 
 int MemoryManager::getVictimFrame_FIFO() {
-    std::lock_guard<std::mutex> lock(fifoQueueMutex_); // Lock the entire function
+    std::lock_guard<std::mutex> lock(fifoQueueMutex_); 
 
     if (frame_fifo_queue_.empty()) {
         return -1;

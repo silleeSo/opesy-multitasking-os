@@ -52,27 +52,18 @@ public:
         cout << "Exiting...\n";
     }
 
-    // Add Console destructor
     ~Console() {
-        // Ensure scheduler and process generation are stopped
-        // and wait for all processes to finish before main memory is deallocated.
         if (scheduler_) {
-            scheduler_->stopProcessGeneration(); // Stop generating new processes
-            // It's crucial to stop the main scheduler loop too,
-            // or ensure it won't try to assign to soon-to-be-destroyed cores.
-            // scheduler_->stop(); // This calls core->stop() and joins schedulerThread_
-            // The scheduler_->stop() handles stopping cores and joining threads.
+            scheduler_->stopProcessGeneration(); 
 
-            // Wait for all active processes to complete
             std::cout << "\nWaiting for all processes to finish before exiting...\n";
-            scheduler_->waitUntilAllDone(); // Wait for all processes to finish
+            scheduler_->waitUntilAllDone(); 
             std::cout << "All processes finished. Shutting down scheduler.\n";
-            scheduler_->stop(); // This will join schedulerThread_ and processGenThread_
+            scheduler_->stop();
         }
 
-        // Detach cpuTickThread if still joinable, as its global data doesn't require waiting
         if (cpuTickThread.joinable()) {
-            cpuTickThread.detach(); // Detach it safely, it's operating on a global atomic.
+            cpuTickThread.detach(); 
         }
     }
 
@@ -270,7 +261,6 @@ private:
             cout << "Error: Specifications have not yet been initialized! Type 'initialize' first." << endl;
         }
         else {
-            // CHANGED: Dana - Refactored screen -s to set memory size but not allocate it.
             if (trimmedLine.rfind("screen -s ", 0) == 0) {
                 std::stringstream ss(trimmedLine.substr(10));
                 std::string processName;
@@ -323,9 +313,9 @@ private:
                         else {
                             scheduler_->submit(newProcess);
                             cout << "Process '" << processName << "' created and submitted." << endl;
-                            // --- ADDED DELAY HERE ---
-                            std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give scheduler time
-                            // --- END ADDED DELAY ---
+                            
+                            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                           
                         }
                     }
                     else {
@@ -542,7 +532,6 @@ private:
         cout << "Report written to csopesy-log.txt\n";
     }
 
-    // CHANGED: Dana - Added power-of-2 validation for memory parameters from config file.
     bool loadConfigFile(const string& path) {
         ifstream in(path);
         if (!in) { cout << "config.txt not found!\n"; return false; }
