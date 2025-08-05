@@ -53,28 +53,27 @@ void Process::execute(const Instruction& ins, int coreId) {
     if (ins.opcode == 1 && ins.args.size() >= 1) { // DECLARE
         const std::string& varName = ins.args[0];
 
-        if (symbolTable_.size() * 2 < 64) { // Check if space available for a new 2-byte variable 
-            // This now correctly calls the MemoryManager to allocate a variable
-            // and get its logical address within the process's symbol table segment.
+        // CHANGE: Check against allocatedMemoryBytes_ instead of fixed 64.
+        // Each variable is 2 bytes, so max variables is allocatedMemoryBytes_ / 2.
+        if (symbolTable_.size() * 2 < allocatedMemoryBytes_) {
             std::string logicalAddress = memoryManager_->allocateVariable(shared_from_this(), varName);
 
-            if (!logicalAddress.empty()) { // Check if allocation was successful
-                if (ins.args.size() == 2) { // If an initial value is provided
+            if (!logicalAddress.empty()) {
+                if (ins.args.size() == 2) {
                     uint16_t initialValue = clamp(getValue(ins.args[1]));
                     if (memoryManager_) memoryManager_->write(logicalAddress, initialValue, shared_from_this());
                 }
-                else {
-                    // Variable is declared without an explicit value, MemoryManager::allocateVariable already wrote 0.
-                }
             }
             else {
+                // This else block is now more likely to be hit and is correct.
                 std::lock_guard<std::mutex> lock(logsMutex_);
-                logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. DECLARE for '" + varName + "' ignored.");
+                logs_.emplace_back(time(nullptr), "[Warning] Cannot declare '" + varName + "'. Memory allocation failed.");
             }
         }
         else {
+            // CHANGE: This block will be executed when the process's memory is full.
             std::lock_guard<std::mutex> lock(logsMutex_);
-            logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. DECLARE for '" + varName + "' ignored."); // 
+            logs_.emplace_back(time(nullptr), "[Warning] Process memory full. DECLARE for '" + varName + "' ignored.");
         }
     }
     else if (ins.opcode == 2 && ins.args.size() == 3) { // ADD
@@ -180,24 +179,25 @@ void Process::execute(const Instruction& ins, int coreId) {
         const std::string& sourceAddress = ins.args[1];
 
         if (!symbolTable_.count(varName)) {
-            if (symbolTable_.size() * 2 < 64) {
+            // CHANGE: Check against allocatedMemoryBytes_ instead of fixed 64.
+            if (symbolTable_.size() * 2 < allocatedMemoryBytes_) {
                 std::string logicalAddress = memoryManager_->allocateVariable(shared_from_this(), varName);
                 if (logicalAddress.empty()) {
                     std::lock_guard<std::mutex> lock(logsMutex_);
-                    logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. READ for '" + varName + "' ignored.");
+                    logs_.emplace_back(time(nullptr), "[Warning] Cannot declare '" + varName + "'. Memory allocation failed.");
                     return;
                 }
             }
             else {
                 std::lock_guard<std::mutex> lock(logsMutex_);
-                logs_.emplace_back(time(nullptr), "[Warning] Symbol table full. READ for '" + varName + "' ignored.");
-                return; 
+                logs_.emplace_back(time(nullptr), "[Warning] Process memory full. READ for '" + varName + "' ignored.");
+                return;
             }
         }
 
         if (memoryManager_) {
             uint16_t value = memoryManager_->read(sourceAddress, shared_from_this());
-            const std::string& destAddress = symbolTable_.at(varName); 
+            const std::string& destAddress = symbolTable_.at(varName);
             memoryManager_->write(destAddress, value, shared_from_this());
         }
     }
@@ -298,7 +298,12 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
     std::uniform_int_distribution<uint64_t> distInstructions(min_ins, max_ins);
     uint64_t totalInstructions = distInstructions(gen);
 
+    // CHANGE: Adjust the variable pool based on memory size.
+    // An 8-byte process can only hold 4 variables (8/2).
     std::vector<std::string> varPool = { "x", "y", "z", "a", "b", "c" };
+    if (memorySize <= 8) {
+        varPool.resize(memorySize / 2); // Restrict to a maximum of 4 variables for an 8-byte process.
+    }
     std::uniform_int_distribution<int> distVar(0, static_cast<int>(varPool.size()) - 1);
     std::uniform_int_distribution<int> distValue(0, 1000);
     std::uniform_int_distribution<int> distSmallValue(0, 100);
@@ -321,7 +326,6 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
 
     // Create a separate distribution specifically for general memory addresses
     int num_general_words = canUseGeneralMemory ? (generalMemorySize / 2) : 0;
-    // The range must be from 0 to the number of words MINUS ONE.
     std::uniform_int_distribution<int> distGeneralWord(0, num_general_words > 0 ? num_general_words - 1 : 0);
 
     int currentDepth = 0;
@@ -339,6 +343,10 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
 
         switch (opcode) {
         case 1: // DECLARE
+            // Ensure we don't try to declare more variables than memory can hold
+            if (varPool.empty() || symbolTable_.size() * 2 >= memorySize) {
+                continue;
+            }
             ins.args.push_back(varPool[distVar(gen)]);
             if (distProbability(gen) < 0.5) {
                 ins.args.push_back(std::to_string(distValue(gen)));
@@ -351,6 +359,7 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
             ins.args.push_back(std::to_string(distSmallValue(gen)));
             break;
         case 4: // PRINT
+            ins.args.push_back(varPool[distVar(gen)]);
             break;
         case 5: // SLEEP
             ins.args.push_back(std::to_string(distSleepTicks(gen)));
@@ -363,9 +372,10 @@ void Process::genRandInst(uint64_t min_ins, uint64_t max_ins, int memorySize) {
 
             {
                 std::stringstream ss;
-                int random_word_offset = distGeneralWord(gen) * 2;
-                int byte_address = GENERAL_MEM_BASE + random_word_offset;
-                ss << "0x" << std::hex << byte_address;
+                // CORRECTED LOGIC: The byte address must be within the general memory space,
+                // which starts at GENERAL_MEM_BASE and ends at memorySize.
+                int random_byte_address = GENERAL_MEM_BASE + distGeneralWord(gen) * 2;
+                ss << "0x" << std::hex << random_byte_address;
                 ins.args.push_back(ss.str());
             }
 
