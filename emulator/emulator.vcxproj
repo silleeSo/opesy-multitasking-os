@@ -76,6 +76,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -90,6 +92,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -104,6 +108,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -118,6 +124,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,27 +135,28 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Core.cpp" />
-    <ClCompile Include="GlobalState.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="MainMemory.cpp" />
-    <ClCompile Include="MemoryManager.cpp" />
-    <ClCompile Include="Process.cpp" />
-    <ClCompile Include="Scheduler.cpp" />
+    <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\cli\Console.cpp" />
+    <ClCompile Include="..\src\common\GlobalState.cpp" />
+    <ClCompile Include="..\src\cpu\Core.cpp" />
+    <ClCompile Include="..\src\cpu\Scheduler.cpp" />
+    <ClCompile Include="..\src\memory\MainMemory.cpp" />
+    <ClCompile Include="..\src\memory\MemoryManager.cpp" />
+    <ClCompile Include="..\src\process\Process.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Console.h" />
-    <ClInclude Include="Core.h" />
-    <ClInclude Include="GlobalState.h" />
-    <ClInclude Include="MainMemory.h" />
-    <ClInclude Include="MemoryManager.h" />
-    <ClInclude Include="Process.h" />
-    <ClInclude Include="Scheduler.h" />
-    <ClInclude Include="Screen.h" />
-    <ClInclude Include="ThreadedQueue.h" />
+    <ClInclude Include="..\src\cli\Console.h" />
+    <ClInclude Include="..\src\cli\Screen.h" />
+    <ClInclude Include="..\src\common\GlobalState.h" />
+    <ClInclude Include="..\src\common\ThreadedQueue.h" />
+    <ClInclude Include="..\src\cpu\Core.h" />
+    <ClInclude Include="..\src\cpu\Scheduler.h" />
+    <ClInclude Include="..\src\memory\MainMemory.h" />
+    <ClInclude Include="..\src\memory\MemoryManager.h" />
+    <ClInclude Include="..\src\process\Process.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="config.txt" />
+    <Text Include="..\config\config.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

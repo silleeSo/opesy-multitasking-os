@@ -1,6 +1,6 @@
-#include "Core.h"
-#include "Scheduler.h"
-#include "GlobalState.h"
+#include "cpu/Core.h"
+#include "cpu/Scheduler.h"
+#include "common/GlobalState.h"
 #include <iostream>
 #include <stdexcept> // For std::runtime_error
 

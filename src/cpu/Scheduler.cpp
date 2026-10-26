@@ -1,5 +1,5 @@
-#include "Scheduler.h"
-#include "Core.h"
+#include "cpu/Scheduler.h"
+#include "cpu/Core.h"
 #include <algorithm>
 #include <chrono>
 #include <random>

@@ -1,6 +1,7 @@
 #pragma once
-#include "MainMemory.h"
+#include "memory/MainMemory.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include <fstream>
 #include <memory>

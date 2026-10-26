@@ -1,3 +1,0 @@
-Frames: 2048
-Paged In: 541
-Paged Out: 0

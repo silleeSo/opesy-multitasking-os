@@ -1,72 +1,81 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
+    <Filter Include="cli">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Header Files">
+    <Filter Include="cpu">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
+    <Filter Include="memory">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="process">
+      <UniqueIdentifier>{b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="config">
+      <UniqueIdentifier>{c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Process.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\cli\Console.cpp">
+      <Filter>cli</Filter>
     </ClCompile>
-    <ClCompile Include="GlobalState.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\src\common\GlobalState.cpp">
+      <Filter>common</Filter>
     </ClCompile>
-    <ClCompile Include="Core.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\src\cpu\Core.cpp">
+      <Filter>cpu</Filter>
     </ClCompile>
-    <ClCompile Include="Scheduler.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\src\cpu\Scheduler.cpp">
+      <Filter>cpu</Filter>
     </ClCompile>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\src\memory\MainMemory.cpp">
+      <Filter>memory</Filter>
     </ClCompile>
-    <ClCompile Include="MainMemory.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\src\memory\MemoryManager.cpp">
+      <Filter>memory</Filter>
     </ClCompile>
-    <ClCompile Include="MemoryManager.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\src\process\Process.cpp">
+      <Filter>process</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="GlobalState.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="..\src\cli\Console.h">
+      <Filter>cli</Filter>
     </ClInclude>
-    <ClInclude Include="Process.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="..\src\cli\Screen.h">
+      <Filter>cli</Filter>
     </ClInclude>
-    <ClInclude Include="Core.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="..\src\common\GlobalState.h">
+      <Filter>common</Filter>
     </ClInclude>
-    <ClInclude Include="Scheduler.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="..\src\common\ThreadedQueue.h">
+      <Filter>common</Filter>
     </ClInclude>
-    <ClInclude Include="Screen.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="..\src\cpu\Core.h">
+      <Filter>cpu</Filter>
     </ClInclude>
-    <ClInclude Include="Console.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="..\src\cpu\Scheduler.h">
+      <Filter>cpu</Filter>
     </ClInclude>
-    <ClInclude Include="ThreadedQueue.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="..\src\memory\MainMemory.h">
+      <Filter>memory</Filter>
     </ClInclude>
-    <ClInclude Include="MainMemory.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="..\src\memory\MemoryManager.h">
+      <Filter>memory</Filter>
     </ClInclude>
-    <ClInclude Include="MemoryManager.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="..\src\process\Process.h">
+      <Filter>process</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="config.txt" />
+    <Text Include="..\config\config.txt">
+      <Filter>config</Filter>
+    </Text>
   </ItemGroup>
 </Project>

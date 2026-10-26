@@ -1,12 +1,11 @@
 // main.cpp
-#include "Console.h"
-#include "Process.h"
-#include "Core.h"
-#include "Scheduler.h" // Needs to be included since Console now creates Scheduler
-#include "GlobalState.h" // Global CPU ticks access
+#include "cli/Console.h"
+#include "process/Process.h"
+#include "cpu/Core.h"
+#include "cpu/Scheduler.h"
+#include "common/GlobalState.h"
 
 int main() {
-
     // Seed the random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
 

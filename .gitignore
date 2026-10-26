@@ -21,6 +21,7 @@
 *.opensdf
 *.sdf
 *.cache
+.vs/
 
 ## Visual Studio temporary files
 *.tmp
@@ -30,8 +31,12 @@
 ## Build directories
 [Bb]in/
 [Oo]bj/
+[Bb]uild/
 ipch/
 out/
+x64/
+Debug/
+Release/
 
 ## CMake generated
 CMakeFiles/
@@ -51,5 +56,10 @@ Makefile
 *.DS_Store
 *.class
 
-# Optional: exclude config.txt if it's machine-specific
-config.txt
+## Output logs (keep directory, ignore generated outputs)
+logs/csopesy-backing-store.txt
+logs/csopesy-log.txt
+logs/csopesy-vmstat.txt
+csopesy-backing-store.txt
+csopesy-log.txt
+csopesy-vmstat.txt

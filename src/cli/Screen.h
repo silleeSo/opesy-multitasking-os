@@ -5,8 +5,8 @@
 #include <string>
 #include <vector> // For logs
 #include <unordered_map> // For variables
-#include "Process.h"
-#include "GlobalState.h" // For globalCpuTicks in process-smi display
+#include "process/Process.h"
+#include "common/GlobalState.h" // For globalCpuTicks in process-smi display
 
 
 class Screen {
@@ -15,6 +15,10 @@ public:
 
     // Enters the process screen loop.
     void run() {
+        if (!process) {
+            std::cout << "Error: No process attached to screen.\n";
+            return;
+        }
         clearScreen();
         std::string line;
         while (true) {

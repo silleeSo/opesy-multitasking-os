@@ -4,8 +4,8 @@
 #include <thread>       
 #include <functional>
 #include <chrono> 
-#include "Process.h"
-#include "GlobalState.h"
+#include "process/Process.h"
+#include "common/GlobalState.h"
 
 class Scheduler;
 

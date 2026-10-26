@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -7,6 +7,7 @@
 #include <utility>
 #include <ctime>
 #include <mutex>
+#include <atomic>
 
 class MemoryManager;
 

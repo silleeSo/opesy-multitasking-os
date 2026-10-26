@@ -13,9 +13,9 @@
 #include <iomanip>
 #include <algorithm>
 
-#include "Process.h"
-#include "GlobalState.h"
-#include "MemoryManager.h"
+#include "process/Process.h"
+#include "common/GlobalState.h"
+#include "memory/MemoryManager.h"
 
 static std::random_device rd;
 static std::mt19937 gen(rd());

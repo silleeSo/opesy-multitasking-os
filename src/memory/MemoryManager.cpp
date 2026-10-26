@@ -1,6 +1,6 @@
-#include "MemoryManager.h"
-#include "Process.h"
-#include "Scheduler.h"
+#include "memory/MemoryManager.h"
+#include "process/Process.h"
+#include "cpu/Scheduler.h"
 #include <sstream>
 #include <iostream>
 #include <iomanip>
@@ -289,7 +289,10 @@ int MemoryManager::getVictimFrame_FIFO() {
 }
 
 void MemoryManager::writeToBackingStore(const std::string& pageId, std::shared_ptr<Process> ownerProcess, int frameIndex, const std::vector<uint16_t>& pageData) {
-    std::ofstream out("csopesy-backing-store.txt", std::ios::app);
+    std::ofstream out("logs/csopesy-backing-store.txt", std::ios::app);
+    if (!out.is_open()) {
+        out.open("csopesy-backing-store.txt", std::ios::app);
+    }
     if (!out.is_open()) {
         std::cerr << "Error: Could not open csopesy-backing-store.txt for writing." << std::endl;
         return;
@@ -383,7 +386,10 @@ void MemoryManager::writeToBackingStore(const std::string& pageId, std::shared_p
 
 
 void MemoryManager::logMemorySnapshot() {
-    std::ofstream out("csopesy-vmstat.txt");
+    std::ofstream out("logs/csopesy-vmstat.txt");
+    if (!out.is_open()) {
+        out.open("csopesy-vmstat.txt");
+    }
     out << "Frames: " << memory.getTotalFrames() << std::endl;
     out << "Paged In: " << pagedInCount << std::endl;
     out << "Paged Out: " << pagedOutCount << std::endl;

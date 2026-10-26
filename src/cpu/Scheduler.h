@@ -9,11 +9,11 @@
 #include <unordered_set>
 #include <queue>  
 
-#include "Core.h"
-#include "Process.h"
-#include "ThreadedQueue.h"
-#include "GlobalState.h"
-#include "MemoryManager.h" 
+#include "cpu/Core.h"
+#include "process/Process.h"
+#include "common/ThreadedQueue.h"
+#include "common/GlobalState.h"
+#include "memory/MemoryManager.h" 
 
 class Scheduler {
 public:
@@ -78,17 +78,17 @@ private:
     std::unordered_set<uint64_t> finishedPIDs_;
 
     std::thread schedulerThread_;
-    std::atomic<bool> running_ = false;
+    std::atomic<bool> running_{ false };
 
     std::thread processGenThread_;
-    std::atomic<bool> processGenEnabled_ = false;
-    std::atomic<uint64_t> lastProcessGenTick_ = 0;
+    std::atomic<bool> processGenEnabled_{ false };
+    std::atomic<uint64_t> lastProcessGenTick_{ 0 };
 
-    std::atomic<uint64_t> nextPid_ = 1;
-    std::atomic<int> activeProcessesCount_ = 0;
+    std::atomic<uint64_t> nextPid_{ 1 };
+    std::atomic<int> activeProcessesCount_{ 0 };
 
     std::vector<std::unique_ptr<std::atomic<uint64_t>>> coreTicksUsed_;
-    std::atomic<uint64_t> schedulerStartTime_ = 0;
+    std::atomic<uint64_t> schedulerStartTime_{ 0 };
 
     MemoryManager& memoryManager_;
     uint64_t lastQuantumSnapshot_ = 0;
